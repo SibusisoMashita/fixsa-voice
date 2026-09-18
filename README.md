@@ -23,7 +23,7 @@ Residents naturally describe a situation as a story, while service systems expec
 - Public landing, report, clarification/review, success, tracking, demo scenarios, about, privacy, terms, accessibility, help, 404, and recovery states.
 - Operator dashboard, report queue, report detail, duplicate review, accessible map triage, analytics, and settings/integrations.
 - Deterministic one-click scenarios for Proof of Fix, a water leak, dangerous electricity fault, pothole, and duplicate report.
-- Resident, operator, supervisor-ready data model, plus an HTTP-only-cookie demo-role gate with no private credentials.
+- Resident, operator, and supervisor-ready data model, with Laravel Sanctum protecting operator mutations and an explicitly labelled no-credential judge preview.
 
 ## Screenshots
 
@@ -37,8 +37,8 @@ Additional captures: [mobile reporting](docs/screenshots/mobile-report.png) and 
 
 The real adapter uses the [AssemblyAI Voice Agent API](https://www.assemblyai.com/docs/voice-agents/voice-agent-api):
 
-1. The browser requests a single-use, short-lived token from `/api/voice/token`.
-2. The server mints it with `ASSEMBLYAI_API_KEY`; the permanent key never reaches browser JavaScript.
+1. The browser requests a single-use, short-lived token from the Laravel `/api/v1/voice/token` endpoint.
+2. Laravel mints it with `ASSEMBLYAI_API_KEY`; the permanent key never reaches browser JavaScript.
 3. The browser opens `wss://agents.assemblyai.com/v1/ws`, sends an inline FixSA agent configuration (or an optional stored agent ID), and streams 24 kHz PCM16 audio.
 4. `transcript.user.delta` drives visible live partials; final user and agent events build the accessible conversation timeline.
 5. JSON-schema function tools call the same validated application contract used by demo mode.
@@ -68,19 +68,21 @@ The UI exposes **English only**. Universal-3 Pro Streaming and current multiling
 
 ```mermaid
 flowchart LR
-  R[Resident] --> UI[Next.js browser UI]
-  UI -->|one-time token| API[Server token route]
+  R[Resident] --> UI[Static Next.js browser UI]
+  UI -->|reports, status, one-time token| API[Laravel 13 API]
+  API --> DB[(MariaDB)]
   API -->|server-only key| AAI[AssemblyAI Voice Agent API]
   UI <-->|PCM16, transcripts, spoken replies| AAI
   AAI -->|JSON-schema tool.call| UI
   UI --> V[Zod-validated civic tools]
-  V --> D[(Deterministic demo store)]
+  V --> D[(Deterministic offline store)]
+  V --> API
   V -. future authorised adapter .-> M[(Municipal / utility work-order API)]
   D --> P[Public redacted tracking]
   D --> O[Role-aware operator views]
 ```
 
-See [docs/architecture.md](docs/architecture.md) and [docs/data-flow.md](docs/data-flow.md) for the full boundaries and sequence diagrams. PostgreSQL-compatible reference migrations are in `db/migrations/`.
+See [docs/architecture.md](docs/architecture.md), [docs/data-flow.md](docs/data-flow.md), and [docs/database-design.md](docs/database-design.md) for the boundaries, transaction rules, and schema rationale. Executable Laravel migrations are in `api/database/migrations/`; the older SQL files remain historical reference material.
 
 ## Privacy and safety
 
@@ -94,13 +96,16 @@ See [docs/architecture.md](docs/architecture.md) and [docs/data-flow.md](docs/da
 
 ## Local setup
 
-Requirements: Node.js 20+ and npm 10+.
+Requirements: Node.js 20+, npm 10+, PHP 8.3+, Composer 2, and SQLite for local API tests (MariaDB in production).
 
 ```bash
 npm install
 cp .env.example .env.local
+cd api && composer install && cp .env.example .env && php artisan key:generate && php artisan migrate --seed && cd ..
 npm run dev
 ```
+
+In a second terminal, run `cd api && php artisan serve`. Set `NEXT_PUBLIC_FIXSA_API_BASE_URL=http://localhost:8000` in `.env.local` to use the database adapter; omit it for the deterministic browser-local demo.
 
 Open [http://localhost:3000](http://localhost:3000). Demo mode works without secrets. Try:
 
@@ -111,10 +116,9 @@ Open [http://localhost:3000](http://localhost:3000). Demo mode works without sec
 
 ### Real AssemblyAI mode
 
-Add only the server-side key to `.env.local`:
+Add the key only to `api/.env`:
 
 ```dotenv
-FIXSA_DEMO_MODE=false
 ASSEMBLYAI_API_KEY=your_server_only_key
 ```
 
@@ -134,19 +138,22 @@ npm run test:e2e:mobile  # 360×800 and 390×844 only
 npm run test:voice:audition # live AssemblyAI voice comparison; uses credits
 npm run test:voice:live  # eight live spoken workflow cases; uses credits
 npm run build            # production build
+npm run build:cpanel     # static export in out/
 npm run audit            # high-severity dependency audit
-npm run verify           # lint + types + unit tests + build
+npm run audit:api        # Composer security audit
+npm run test:api         # Laravel feature tests
+npm run verify           # frontend + API format/tests + static build
 npm run seed             # validate synthetic fixture schema
 npm run reset            # explain safe browser reset path
 ```
 
 ## Deployment
 
-The simplest supported target is a Node-capable Next.js platform such as Vercel or Render. Static-only hosting will not support token minting. Configure `ASSEMBLYAI_API_KEY` as a protected server secret, set `NEXT_PUBLIC_APP_URL`, deploy, then verify `/api/health` without exposing the key. Full steps, smoke tests, and rollback are in [docs/deploy-runbook.md](docs/deploy-runbook.md).
+The supported cPanel topology is a prebuilt static frontend plus Laravel 13/MariaDB API. The checked account has PHP 8.5 and the required MySQL PDO support, so no Node runtime is needed on the server. Configure `ASSEMBLYAI_API_KEY` only in Laravel’s protected server environment and verify `/api/v1/health` without exposing it. Full preflight, release, acceptance, and rollback steps are in [docs/deploy-runbook.md](docs/deploy-runbook.md).
 
-No public deployment is performed automatically from this repository; it requires the owner’s account access and approval.
+The live hackathon build is at [fixsa.valosystems.co.za](https://fixsa.valosystems.co.za), backed by the health-checked Laravel API at [api.fixsa.valosystems.co.za/api/v1/health](https://api.fixsa.valosystems.co.za/api/v1/health). Releases are uploaded over SSH into isolated roots; the permanent AssemblyAI key remains only in the protected server environment.
 
-The hackathon operations workspace is separated from public routes by a four-hour, HTTP-only demo-role cookie. This is an access boundary for the synthetic judge experience, not production authentication. A live deployment must replace it with a trusted identity provider and enforce authorisation again at every protected data mutation.
+The browser’s operations pages are a synthetic judge preview, not an access boundary. Laravel operator endpoints require Sanctum authentication and re-authorise writes server-side. A real municipal launch should connect that layer to the approved identity provider.
 
 ## Testing and quality
 
@@ -158,7 +165,7 @@ See [docs/final-verification.md](docs/final-verification.md) for the latest appl
 
 ## Limitations
 
-- Browser-local demo persistence is not a production system of record and can be reset.
+- Browser-local mode is an offline judge fallback; Laravel/MariaDB is the production adapter when `NEXT_PUBLIC_FIXSA_API_BASE_URL` is configured.
 - Map coordinates and operational metrics are synthetic; map tiles require network access.
 - No municipal API, identity provider, SMS, emergency service, or geocoder is connected.
 - Speech quality depends on microphone, browser, network, background noise, accent, and model availability.

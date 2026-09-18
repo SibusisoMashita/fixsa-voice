@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Check, Edit3, GitMerge, ShieldCheck, Volume2 } from "lucide-react";
 import { assignPriority, calculateSlaDue, extractDemoFields, makeReference, slaHoursFor } from "@/lib/domain";
+import { createPublicReport, isApiConfigured } from "@/lib/api-client";
 import { loadDraft, loadReports, saveDraft, upsertReport } from "@/lib/demo-store";
 import type { IssueCategory, ReportDraft, ServiceReport } from "@/lib/schemas";
 import { categoryLabels, issueCategories } from "@/lib/schemas";
@@ -17,6 +18,7 @@ export function ReviewClient() {
   const [confirmation, setConfirmation] = useState(false);
   const [decision, setDecision] = useState<"merge" | "separate">("merge");
   const [submitting, setSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -49,9 +51,10 @@ export function ReviewClient() {
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!confirmation || draft.safetyHold) return;
     setSubmitting(true);
+    setSubmissionError("");
     const now = new Date().toISOString();
     const reports = loadReports();
     const duplicate = draft.duplicates[0];
@@ -72,6 +75,18 @@ export function ReviewClient() {
       }
     }
     const priority = assignPriority(draft.fields);
+    if (isApiConfigured) {
+      try {
+        const persisted = await createPublicReport(draft, priority, readback);
+        upsertReport(persisted);
+        saveDraft({ ...draft, confirmed: true });
+        router.push(`/report/success?ref=${persisted.reference}`);
+      } catch (caught) {
+        setSubmitting(false);
+        setSubmissionError(caught instanceof Error ? caught.message : "The report could not be saved.");
+      }
+      return;
+    }
     const reference = makeReference(1948);
     const report: ServiceReport = {
       id: draft.id,
@@ -126,7 +141,7 @@ export function ReviewClient() {
       <section className="panel"><div className="panel-header"><div><p className="eyebrow">Duplicate check</p><h2>{draft.duplicates.length ? "A nearby report may match" : "No strong match found"}</h2></div><GitMerge/></div>
         {draft.duplicates.length ? draft.duplicates.slice(0, 2).map((match) => <article className="duplicate-card" key={match.reportId}><header><div><strong>{match.reference}</strong><p>{Math.round(match.distanceMeters)} m away · open report</p></div><span className="match-score">{Math.round(match.score * 100)}% match</span></header><ul>{match.rationale.map((reason) => <li key={reason}>{reason}</li>)}</ul><div className="mode-switch"><button aria-pressed={decision === "merge"} onClick={() => setDecision("merge")}>Merge evidence</button><button aria-pressed={decision === "separate"} onClick={() => setDecision("separate")}>Keep separate</button></div></article>) : <div className="callout"><Check/><div><strong>Clear to create</strong><p>No open synthetic report crossed the match threshold.</p></div></div>}
       </section>
-      <section className="panel"><div className="panel-header"><div><p className="eyebrow">Required read-back</p><h2>Confirm the complete report</h2></div><Volume2/></div><div className="review-summary"><p>{readback}</p><strong>Is this correct?</strong></div><button className="button button-ghost button-wide" onClick={speakReadback}><Volume2 size={17}/> Hear read-back</button><label className="check-row" style={{ marginTop: 18 }}><input type="checkbox" checked={confirmation} onChange={(event) => setConfirmation(event.target.checked)}/><span><strong>Yes, the read-back is correct</strong><br/><small>I explicitly confirm {decision === "merge" && draft.duplicates.length ? "merging my evidence into the matching demo report" : "creating this synthetic service request"}.</small></span></label><button className="button button-primary button-wide" disabled={!confirmation || submitting} onClick={submit} style={{ marginTop: 18 }}><Check size={18}/>{submitting ? "Creating…" : decision === "merge" && draft.duplicates.length ? "Confirm & merge evidence" : "Confirm & create demo report"}</button>
+      <section className="panel"><div className="panel-header"><div><p className="eyebrow">Required read-back</p><h2>Confirm the complete report</h2></div><Volume2/></div><div className="review-summary"><p>{readback}</p><strong>Is this correct?</strong></div><button className="button button-ghost button-wide" onClick={speakReadback}><Volume2 size={17}/> Hear read-back</button><label className="check-row" style={{ marginTop: 18 }}><input type="checkbox" checked={confirmation} onChange={(event) => setConfirmation(event.target.checked)}/><span><strong>Yes, the read-back is correct</strong><br/><small>I explicitly confirm {decision === "merge" && draft.duplicates.length ? "merging my evidence into the matching demo report" : "creating this synthetic service request"}.</small></span></label><button className="button button-primary button-wide" disabled={!confirmation || submitting} onClick={submit} style={{ marginTop: 18 }}><Check size={18}/>{submitting ? "Creating…" : decision === "merge" && draft.duplicates.length ? "Confirm & merge evidence" : "Confirm & create demo report"}</button>{submissionError && <p className="error-text" role="alert">{submissionError}</p>}
         {!confirmation && <p style={{ color: "var(--ink-soft)", fontSize: ".78rem", margin: "12px 0 0" }}><AlertCircle size={14}/> Creation stays blocked until explicit confirmation.</p>}
       </section>
     </div>

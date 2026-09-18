@@ -1,13 +1,8 @@
 import { ArrowRight, Database, EyeOff, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { PageHeader } from "@/components/Ui";
 
-function safeNextPath(value: string | undefined) {
-  if (!value?.startsWith("/ops") || value.startsWith("//")) return "/ops";
-  return value;
-}
-
-export default async function OperatorAccessPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams;
+export default function OperatorAccessPage() {
   return (
     <div className="narrow-container">
       <PageHeader
@@ -40,12 +35,9 @@ export default async function OperatorAccessPage({ searchParams }: { searchParam
             <p>A production operator role would require verified identity, server-side authorisation and an audited data store.</p>
           </div>
         </div>
-        <form action="/api/demo-role" method="post">
-          <input type="hidden" name="next" value={safeNextPath(next)} />
-          <button className="button button-primary button-wide" type="submit">
+        <Link className="button button-primary button-wide" href="/ops">
             Enter demo operator workspace <ArrowRight size={18} aria-hidden="true" />
-          </button>
-        </form>
+        </Link>
       </section>
     </div>
   );

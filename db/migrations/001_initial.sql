@@ -1,6 +1,6 @@
+-- Historical PostgreSQL reference only. Production migrations now live in api/database/migrations for Laravel + MariaDB.
 -- FixSA Voice reference schema (PostgreSQL-compatible).
--- The public hackathon demo uses browser-local synthetic storage by default;
--- this migration documents the production persistence contract.
+-- This migration documents the original persistence contract.
 
 create extension if not exists pgcrypto;
 

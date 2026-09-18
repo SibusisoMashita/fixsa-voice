@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ImagePlus, Keyboard, LocateFixed, Mic, RefreshCw, Send, ShieldCheck, StopCircle, Volume2, VolumeX } from "lucide-react";
 import { applyResolutionVerification, assignPriority, calculateSlaDue, detectImmediateDanger, extractDemoFields, findDuplicates, slaHoursFor } from "@/lib/domain";
 import { loadReports, saveDraft, upsertReport } from "@/lib/demo-store";
+import { apiUrl } from "@/lib/api-client";
 import { seedReports } from "@/lib/seed";
 import { extractedFieldsSchema, type ReportDraft, type ServiceReport, type TranscriptSegment } from "@/lib/schemas";
 import { executeDemoTool, FIXSA_AGENT_PROMPT, voiceToolDefinitions } from "@/lib/voice-tools";
@@ -251,7 +252,7 @@ export function VoiceReportClient() {
         setError("This browser does not support the secure audio features required for real voice mode. Use the keyboard path or demo mode.");
         return;
       }
-      const tokenResponse = await fetch("/api/voice/token", { cache: "no-store" });
+      const tokenResponse = await fetch(apiUrl("/api/v1/voice/token"), { cache: "no-store" });
       if (!tokenResponse.ok) throw new Error((await tokenResponse.json()).error || "Real mode is unavailable.");
       const { token } = await tokenResponse.json();
       const audioContext = new AudioContext();

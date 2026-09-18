@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, MessageCircleWarning, Mic2, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
 import { applyResolutionVerification } from "@/lib/domain";
+import { fetchPublicReport, isApiConfigured, verifyRemoteResolution } from "@/lib/api-client";
 import { loadReports, upsertReport } from "@/lib/demo-store";
 import { categoryLabels, type ResolutionOutcome, type ServiceReport } from "@/lib/schemas";
 import { StatusBadge } from "./Ui";
@@ -24,8 +25,13 @@ export function ProofOfFixClient() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setReport(loadReports().find((item) => item.reference === reference) || null));
-    return () => window.cancelAnimationFrame(frame);
+    let active = true;
+    const load = async () => {
+      const next = isApiConfigured ? await fetchPublicReport(reference) : loadReports().find((item) => item.reference === reference) || null;
+      if (active) setReport(next);
+    };
+    load().catch((caught) => active && setError(caught instanceof Error ? caught.message : "The report could not be loaded."));
+    return () => { active = false; };
   }, [reference]);
 
   const choose = (outcome: ResolutionOutcome) => {
@@ -35,11 +41,13 @@ export function ProofOfFixClient() {
     setError("");
   };
 
-  const verify = () => {
+  const verify = async () => {
     if (!report) return;
     try {
-      const updated = applyResolutionVerification(report, selected, statement, "judge_demo");
-      upsertReport(updated);
+      const updated = isApiConfigured
+        ? await verifyRemoteResolution(report.reference, selected, statement, "judge_demo")
+        : applyResolutionVerification(report, selected, statement, "judge_demo");
+      if (!isApiConfigured) upsertReport(updated);
       setReport(updated);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "This fix could not be checked.");
@@ -71,7 +79,7 @@ export function ProofOfFixClient() {
       {error && <p role="alert" className="error-text">{error}</p>}
     </section> : <section className={`proof-result ${verification.state === "verified" ? "verified" : "reopened"}`} aria-live="polite">
       <div className="proof-result-icon">{verification.state === "verified" ? <CheckCircle2/> : <RotateCcw/>}</div>
-      <div><p className="eyebrow">Resident evidence recorded</p><h2>{verification.state === "verified" ? "Resolution independently confirmed." : "Closure challenged. Work order reopened."}</h2><p>“{verification.statement}”</p><p>The public timeline and operator audit trail now show the resident’s outcome without retaining their audio.</p><div className="proof-actions"><Link className="button button-secondary" href={`/track?ref=${report.reference}`}>See public proof</Link><Link className="button button-ghost" href={`/ops/reports/${report.id}`}>See operator audit</Link></div></div>
+      <div><p className="eyebrow">Resident evidence recorded</p><h2>{verification.state === "verified" ? "Resolution independently confirmed." : "Closure challenged. Work order reopened."}</h2><p>“{verification.statement}”</p><p>The public timeline and operator audit trail now show the resident’s outcome without retaining their audio.</p><div className="proof-actions"><Link className="button button-secondary" href={`/track?ref=${report.reference}`}>See public proof</Link><Link className="button button-ghost" href={`/ops/report?id=${report.id}`}>See operator audit</Link></div></div>
     </section>}
   </div>;
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, BadgeCheck, FileAudio, GitMerge, History, Image as ImageIcon, LockKeyhole, MapPin, MessageSquareText, RotateCcw, UserRound } from "lucide-react";
 import { loadReports, upsertReport } from "@/lib/demo-store";
 import { categoryLabels, reportStatuses, statusLabels, type ReportStatus, type ServiceReport } from "@/lib/schemas";
@@ -31,4 +32,9 @@ export function ReportDetailClient({ id }: { id: string }) {
       <section className="panel"><div className="panel-header"><div><p className="eyebrow">Immutable events</p><h2>Audit trail</h2></div><History/></div><ul className="audit-list">{[...report.statusEvents].reverse().map((event) => <li key={event.id}><strong>{statusLabels[event.status]} · {event.actor}</strong><p>{event.note}</p><time>{new Date(event.at).toLocaleString("en-ZA", { dateStyle:"medium", timeStyle:"short" })}</time></li>)}</ul></section>
     </div><aside className="settings-list"><section className="panel"><p className="eyebrow">Safe demo controls</p><div className="field"><label htmlFor="detail-status">Status</label><select id="detail-status" value={report.status} onChange={(event) => update({ status: event.target.value as ReportStatus }, `Demo status changed from ${report.status} to ${event.target.value}.`)}>{reportStatuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></div><div className="field" style={{ marginTop:14 }}><label htmlFor="assignee">Assignee</label><select id="assignee" value={report.assignee || ""} onChange={(event) => update({ assignee: event.target.value || null }, `Demo assignee changed to ${event.target.value || "unassigned"}.`)}><option value="">Unassigned</option><option>Water response · Team 2</option><option>Roads · Crew 3</option><option>Lighting · Crew 1</option><option>Sanitation · Team 4</option></select></div>{saved && <p role="status" style={{ marginTop:12 }}>{saved}</p>}</section><section className="panel"><div className="panel-header"><div><p className="eyebrow">Location</p><h2>Map</h2></div><MapPin/></div><MapPanel reports={[report]}/></section><section className="panel"><div className="panel-header"><div><p className="eyebrow">Relationships</p><h2>Duplicate history</h2></div><GitMerge/></div>{report.mergedReportIds.length ? <p>{report.mergedReportIds.length} corroborating demo report{report.mergedReportIds.length === 1 ? "" : "s"} merged. Merge is reversible in the duplicate review screen.</p> : <p>No merged reports. Duplicate of: {report.duplicateOf || "none"}.</p>}<Link className="button button-ghost button-wide" href="/ops/duplicates">Review duplicates</Link></section><section className="panel"><div className="panel-header"><div><p className="eyebrow">Notes</p><h2>Visibility split</h2></div><UserRound/></div><h3>Resident-visible</h3>{report.publicNotes.map((note) => <p key={note}>{note}</p>)}<h3>Internal only</h3>{report.internalNotes.map((note) => <p key={note}>{note}</p>)}</section></aside></div>
   </>;
+}
+
+export function ReportDetailEntry() {
+  const search = useSearchParams();
+  return <ReportDetailClient id={search.get("id") || ""}/>;
 }

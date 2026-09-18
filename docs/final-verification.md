@@ -2,7 +2,7 @@
 
 Date: 18 September 2026
 
-Environment: local macOS workspace, Node.js 26, Next.js 16
+Environment: local macOS workspace plus `https://fixsa.valosystems.co.za`; Node.js 26, Next.js 16, PHP 8.5, Laravel 13, MariaDB
 
 Data classification: wholly synthetic
 
@@ -11,14 +11,18 @@ Data classification: wholly synthetic
 | Check | Command | Result |
 |---|---|---|
 | Type safety | `npm run typecheck` | Pass |
-| Production compilation | `npm run build` | Pass, all required routes generated |
+| cPanel static export | `npm run build:cpanel` | Pass, 26 static/SSG routes generated in `out/` |
 | Lint | `npm run lint` | Pass, zero warnings |
 | Unit/integration | `npm test` | Pass, 24 tests |
+| Laravel API | `npm run test:api` | Pass, 13 tests and 70 assertions |
 | Live voice workflows | `npm run test:voice:live` | Pass, 8 core cases plus targeted Proof of Fix session |
 | Browser journeys | `npm run test:e2e` | Pass, 40 runs across desktop, 360×800, 390×844, and tablet |
 | Dependency audit | `npm run audit` | Pass, zero vulnerabilities |
+| PHP dependency audit | `npm run audit:api` | Pass, zero security advisories |
 | Browser console | In-app browser inspection | Pass, no error or warning entries |
 | Responsive overflow | Rendered width inspection | Pass, no page-level horizontal overflow |
+| Hosted HTTPS/API | live health, CORS, privacy, auth and voice-token probes | Pass; MariaDB health is `ok`, public projection is allowlisted, unauthenticated operator access is `401`, and a short-lived AssemblyAI token is minted server-side |
+| Hosted browser journeys | Playwright against the production URL | Pass, 9 non-mutating desktop journeys plus the reset isolated Proof of Fix journey |
 
 ## Implemented acceptance evidence
 
@@ -31,8 +35,10 @@ Data classification: wholly synthetic
 - Proof of Fix verifies or reopens claimed repairs only after explicit read-back confirmation.
 - Danger language blocks ordinary submission and avoids unverified numbers.
 - Public tracking uses an allowlisted field view.
+- Residential public locations are replaced with a landmark label and public map coordinates are reduced to three decimals.
+- Report creation, Proof of Fix, and operator transitions are transactional, idempotent where retryable, and append immutable audit events.
 - Duplicate merge is reversible in the operator demo.
-- Direct operator routes require the labelled HTTP-only-cookie demo-role entry.
+- Browser operator pages are a labelled synthetic preview; Laravel operator reads and writes require an active Sanctum operator with explicit token abilities.
 - Every requested public, operator, legal, help, error, and loading route is present.
 - Synthetic metrics, demo roles, inactive integrations, and non-dispatch status are labelled.
 
@@ -46,5 +52,6 @@ Data classification: wholly synthetic
 - Corrected a navigation breakpoint specificity issue found during visual inspection.
 - Corrected nested landmark markup found during the final operator-gate inspection.
 - Captured repository screenshots for landing, mobile reporting, operations, and judge scenarios.
+- Captured final production screenshots for the landing page, 390px reporting flow, Proof of Fix, and operations dashboard.
 
 Real AssemblyAI audio was exercised with an owner-authorised, ignored local credential. The permanent key remained server-side and was not written to source, fixtures, reports, or screenshots. Full voice evidence and limitations are in [voice-quality-report.md](voice-quality-report.md).

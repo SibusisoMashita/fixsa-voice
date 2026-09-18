@@ -9,6 +9,10 @@ const states = {
   "unsupported-browser": { icon: AlertTriangle, title: "This browser cannot run live voice.", text: "Secure microphone capture, AudioWorklet, and WebSocket support are required. The keyboard alternative remains fully available.", action: "Use keyboard report" },
 } as const;
 
+export function generateStaticParams() {
+  return Object.keys(states).map((state) => ({ state }));
+}
+
 export default async function StatusPage({ params }: { params: Promise<{ state:string }> }) {
   const { state } = await params;
   const item = states[state as keyof typeof states];

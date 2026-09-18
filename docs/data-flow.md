@@ -4,13 +4,13 @@
 sequenceDiagram
   actor R as Resident
   participant UI as FixSA browser
-  participant S as Token server
+  participant S as Laravel API
   participant A as AssemblyAI Voice Agent
   participant T as Civic tools
-  participant D as Demo repository
+  participant D as MariaDB
 
   R->>UI: Accept consent and start microphone
-  UI->>S: GET /api/voice/token
+  UI->>S: GET /api/v1/voice/token
   S->>A: Mint one-time token with server key
   A-->>S: Temporary token
   S-->>UI: Temporary token only
@@ -35,10 +35,12 @@ sequenceDiagram
     UI-->>R: Stop flow + official emergency guidance
   else New report
     UI->>T: create_service_request confirmed=true
-    T->>D: Add synthetic report + audit event
+    T->>S: POST report + Idempotency-Key
+    S->>D: Transaction: report + transcript + status + audit
   else Duplicate selected
     UI->>T: merge_with_existing_report confirmed=true
-    T->>D: Append evidence + reversible audit event
+    T->>S: POST merge decision
+    S->>D: Transaction: relation + evidence + audit
   end
   D-->>UI: Reference, status, SLA
   UI-->>R: Speak and show result
@@ -47,4 +49,4 @@ sequenceDiagram
 
 ## Public-view projection
 
-Only reference, category, approximate location, status timeline, SLA state, and approved public notes cross into public tracking. Full transcripts, internal notes, assignees, contact identifiers, evidence objects, tool arguments, and exact private-home detail stay outside that projection.
+Only reference, category, approved location detail, status timeline, SLA state, public evidence, and approved public notes cross the Laravel public resource. Full transcripts, internal notes, assignees, contact identifiers, private evidence, tool arguments, and exact private-home detail stay outside that projection.

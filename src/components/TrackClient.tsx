@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, BadgeCheck, FilePlus2, MapPin, RotateCcw, Search, ShieldCheck } from "lucide-react";
 import { loadReports, upsertReport } from "@/lib/demo-store";
+import { fetchPublicReport, isApiConfigured } from "@/lib/api-client";
 import { reportStatuses, statusLabels, categoryLabels, type ServiceReport } from "@/lib/schemas";
 import { MapPanel } from "./MapPanel";
 import { PriorityBadge, StatusBadge } from "./Ui";
@@ -20,20 +21,21 @@ export function TrackClient() {
   const [note, setNote] = useState("");
   const [evidenceMessage, setEvidenceMessage] = useState("");
 
-  const lookup = (value: string) => {
+  const lookup = async (value: string) => {
     const normalized = value.trim().toUpperCase();
     if (/^FSA-20(2[0-5]|1\d)-/.test(normalized)) { setReport(null); setState("expired"); return; }
-    const found = loadReports().find((item) => item.reference === normalized) || null;
+    const found = isApiConfigured ? await fetchPublicReport(normalized) : loadReports().find((item) => item.reference === normalized) || null;
     setReport(found);
     setState(found ? "found" : "missing");
   };
 
   useEffect(() => {
     if (!initialRef) return;
-    const frame = window.requestAnimationFrame(() => lookup(initialRef));
-    return () => window.cancelAnimationFrame(frame);
+    let active = true;
+    const frame = window.requestAnimationFrame(() => lookup(initialRef).catch(() => { if (active) { setReport(null); setState("missing"); } }));
+    return () => { active = false; window.cancelAnimationFrame(frame); };
   }, [initialRef]);
-  const submit = (event: FormEvent) => { event.preventDefault(); lookup(reference); };
+  const submit = (event: FormEvent) => { event.preventDefault(); lookup(reference).catch(() => { setReport(null); setState("missing"); }); };
   const addEvidence = () => {
     if (!report || note.trim().length < 3) return;
     const updated = { ...report, evidence: [...report.evidence, { id: crypto.randomUUID(), type: "note" as const, name: note.trim(), addedAt: new Date().toISOString(), public: false }], updatedAt: new Date().toISOString() };
@@ -51,7 +53,7 @@ export function TrackClient() {
     {state === "missing" && <div className="callout warning tracking-result" role="alert"><AlertCircle/><div><strong>Reference not found</strong><p>Check every character and try again. Demo references use the format FSA-2026-1234. This may also be a reference from another service.</p></div></div>}
     {state === "expired" && <div className="callout warning tracking-result" role="alert"><AlertCircle/><div><strong>Reference is outside this demo period</strong><p>This local demonstration only contains 2026 synthetic records. No archival municipal records are connected.</p></div></div>}
     {report && <div className="tracking-result settings-list">
-      <section className="panel"><div className="panel-header"><div><p className="eyebrow">{report.reference}</p><h2>{categoryLabels[report.fields.category]}</h2><p>{report.fields.location.address}, {report.fields.location.area}</p></div><div style={{ display: "grid", gap: 7, justifyItems: "end" }}><StatusBadge status={report.status}/><PriorityBadge priority={report.priority}/></div></div><div className="callout"><ShieldCheck/><div><strong>Synthetic tracking view</strong><p>This status reflects browser-local demo data, not a municipal system. Last updated {new Date(report.updatedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.</p></div></div>
+      <section className="panel"><div className="panel-header"><div><p className="eyebrow">{report.reference}</p><h2>{categoryLabels[report.fields.category]}</h2><p>{report.fields.location.address}, {report.fields.location.area}</p></div><div style={{ display: "grid", gap: 7, justifyItems: "end" }}><StatusBadge status={report.status}/><PriorityBadge priority={report.priority}/></div></div><div className="callout"><ShieldCheck/><div><strong>{isApiConfigured ? "Protected API tracking view" : "Synthetic browser-local tracking view"}</strong><p>{isApiConfigured ? "This status is loaded from the FixSA Laravel API." : "This status reflects browser-local demo data, not a municipal system."} Last updated {new Date(report.updatedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.</p></div></div>
         <ol className="timeline">{reportStatuses.map((status, index) => { const event = report.statusEvents.findLast((item) => item.status === status && item.public); return <li key={status} className={index <= currentIndex ? "complete" : ""}><strong>{statusLabels[status]}</strong>{event ? <><p>{event.note}</p><time>{new Date(event.at).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</time></> : <p>Awaiting this stage</p>}</li>; })}</ol>
         {report.resolutionVerification && <div className={`proof-public ${report.resolutionVerification.state}`}>
           {report.resolutionVerification.state === "pending" ? <ShieldCheck/> : report.resolutionVerification.state === "verified" ? <BadgeCheck/> : <RotateCcw/>}

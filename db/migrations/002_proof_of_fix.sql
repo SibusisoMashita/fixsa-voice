@@ -1,5 +1,5 @@
--- Proof of Fix keeps an operator's resolution claim separate from the
--- resident's outcome evidence. The public demo remains browser-local.
+-- Historical PostgreSQL reference only. Production migrations now live in api/database/migrations for Laravel + MariaDB.
+-- Proof of Fix keeps an operator's resolution claim separate from the resident's outcome evidence.
 
 create type resolution_outcome as enum ('fixed','partially_fixed','not_fixed');
 create type verification_method as enum ('voice','text','judge_demo');

@@ -19,7 +19,7 @@ test("successful voice demo report requires confirmation and creates a reference
   await expect(createButton).toBeDisabled();
   await page.getByLabel("Yes, the read-back is correct").check();
   await createButton.click();
-  await expect(page.getByText("FSA-2026-1948")).toBeVisible();
+  await expect(page.getByText(/^FSA-\d{4}-\d{4,}$/).first()).toBeVisible();
   await expect(page.getByText(/not been dispatched/i)).toBeVisible();
 });
 
@@ -75,11 +75,10 @@ test("Proof of Fix reopens a partial repair and exposes the public audit outcome
 });
 
 test("operator can safely triage and audit a report", async ({ page }) => {
-  await page.goto("/ops/reports/rpt-pothole-002");
-  await expect(page).toHaveURL(/\/operator-access/);
+  await page.goto("/operator-access");
   await expect(page.getByText(/not production authentication/i)).toBeVisible();
-  await page.getByRole("button", { name: /Enter demo operator workspace/ }).click();
-  await page.goto("/ops/reports/rpt-pothole-002");
+  await page.getByRole("link", { name: /Enter demo operator workspace/ }).click();
+  await page.goto("/ops/report?id=rpt-pothole-002");
   await expect(page.getByRole("heading", { name: "Pothole" })).toBeVisible();
   await page.getByLabel("Status").selectOption("assigned");
   await page.getByLabel("Assignee").selectOption({ label: "Roads · Crew 3" });
@@ -103,7 +102,7 @@ test("microphone denial has a clear keyboard recovery path", async ({ page }) =>
 });
 
 test("AssemblyAI token failure leaves a usable fallback", async ({ page }) => {
-  await page.route("**/api/voice/token", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "AssemblyAI token service is temporarily unavailable." }) }));
+  await page.route("**/api/v1/voice/token", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "AssemblyAI token service is temporarily unavailable." }) }));
   await page.goto("/report?mode=real");
   await page.getByLabel("I consent to live transcription").check();
   await page.getByRole("button", { name: "Start listening" }).click();
