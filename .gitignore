@@ -16,3 +16,6 @@ test-results/
 *.ogg
 *.tsbuildinfo
 artifacts/voice-eval/
+tmp/
+.codex-finalizer/
+output/

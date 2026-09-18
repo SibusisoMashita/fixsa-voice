@@ -23,6 +23,8 @@ Data classification: wholly synthetic
 | Responsive overflow | Rendered width inspection | Pass, no page-level horizontal overflow |
 | Hosted HTTPS/API | live health, CORS, privacy, auth and voice-token probes | Pass; MariaDB health is `ok`, public projection is allowlisted, unauthenticated operator access is `401`, and a short-lived AssemblyAI token is minted server-side |
 | Hosted browser journeys | Playwright against the production URL | Pass, 9 non-mutating desktop journeys plus the reset isolated Proof of Fix journey |
+| Presentation artifact | PPTX integrity/layout validation plus rendered PDF contact sheet | Pass, 12 slides at 16:9 with no clipped or overlapping content |
+| Demo video artifact | H.264/AAC encode plus five-frame visual inspection | Pass, 90.16 seconds at 1280×720 with South African English narration |
 
 ## Implemented acceptance evidence
 
@@ -53,5 +55,6 @@ Data classification: wholly synthetic
 - Corrected nested landmark markup found during the final operator-gate inspection.
 - Captured repository screenshots for landing, mobile reporting, operations, and judge scenarios.
 - Captured final production screenshots for the landing page, 390px reporting flow, Proof of Fix, and operations dashboard.
+- Reviewed the final cover, deck, PDF, screenshots, and MP4 for secrets, account screens, personal data, and real resident content; all visible records remain synthetic.
 
 Real AssemblyAI audio was exercised with an owner-authorised, ignored local credential. The permanent key remained server-side and was not written to source, fixtures, reports, or screenshots. Full voice evidence and limitations are in [voice-quality-report.md](voice-quality-report.md).

@@ -173,6 +173,14 @@ See [docs/final-verification.md](docs/final-verification.md) for the latest appl
 
 ## Hackathon submission pack
 
-Submission copy, demo script, video shot list, deck outline, checklist, and judging evidence are in [`hackathon/`](hackathon/). The repository-native cover asset is [`public/cover-image.svg`](public/cover-image.svg).
+**Short description (185 characters):** FixSA Voice turns spoken service problems into safe, deduplicated work orders. Proof of Fix lets residents verify repairs or reopen failed work by voice—closing the accountability loop.
+
+- [Live application](https://fixsa.valosystems.co.za)
+- [90-second narrated demo](https://github.com/SibusisoMashita/fixsa-voice/releases/download/v1.0.0-hackathon/FixSA-Voice-Demo.mp4)
+- [Slide deck PDF](https://github.com/SibusisoMashita/fixsa-voice/releases/download/v1.0.0-hackathon/FixSA-Voice-Hackathon-Deck.pdf)
+- [Editable slide deck](https://github.com/SibusisoMashita/fixsa-voice/releases/download/v1.0.0-hackathon/FixSA-Voice-Hackathon-Deck.pptx)
+- [1920×1080 cover PNG](hackathon/assets/fixsa-cover-1920x1080.png)
+
+Submission copy, demo script, video shot list, deck outline, checklist, privacy review, and judging evidence are in [`hackathon/`](hackathon/). The repository-native cover asset is [`public/cover-image.svg`](public/cover-image.svg).
 
 Built by **VALO Systems**. If founder attribution is needed, use **Sibusiso Mashita** only.
