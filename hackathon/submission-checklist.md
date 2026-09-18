@@ -22,6 +22,8 @@ Deadline: **30 September 2026 at 17:00 SAST**
 - [x] Verify public application URL and real voice token journey
 - [x] Prepare repository, video, deck, and application URLs for the submission
 - [x] Complete final privacy review (`hackathon/privacy-review.md`)
+- [ ] Connect the required Discord account on the lablab.ai team dashboard
+- [ ] Create the team and enter the prepared project submission
 - [ ] Owner performs final submission before deadline
 
 Never include API keys, account screens, personal contact details, client data, Dropbox files, or real resident content in any submission asset.
