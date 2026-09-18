@@ -4,6 +4,8 @@
 
 English only. The control does not advertise languages that have not been validated in this product.
 
+The automated baseline streams macOS `Tessa` (`en_ZA`) speech through real Voice Agent sessions. It covers repeatable workflow and transcription regressions but does not replace consenting human accent research. See [voice-quality-report.md](voice-quality-report.md) for the current matrix and measurements.
+
 ## Test plan
 
 Recruit consenting speakers across South African English varieties and a range of devices, bandwidth conditions, ages, speech rates, and background noise. Use wholly synthetic civic scenarios and never capture real resident incidents. Measure:

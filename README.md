@@ -127,6 +127,8 @@ npm run typecheck        # strict TypeScript
 npm test                 # Vitest unit and integration tests
 npm run test:e2e         # Playwright journeys and responsive projects
 npm run test:e2e:mobile  # 360×800 and 390×844 only
+npm run test:voice:audition # live AssemblyAI voice comparison; uses credits
+npm run test:voice:live  # eight live spoken workflow cases; uses credits
 npm run build            # production build
 npm run audit            # high-severity dependency audit
 npm run verify           # lint + types + unit tests + build
@@ -148,7 +150,7 @@ Unit coverage targets classification, extraction, validation, priority, SLA, dup
 
 The responsive matrix covers 360×800, 390×844, 820×1180, and desktop Chromium. Accessibility features include semantic HTML, keyboard navigation, visible focus, reduced motion, live regions, transcript text, touch targets, and a map list alternative.
 
-See [docs/final-verification.md](docs/final-verification.md) for the latest evidence.
+See [docs/final-verification.md](docs/final-verification.md) for the latest application evidence and [docs/voice-quality-report.md](docs/voice-quality-report.md) for the real-session voice audition and eight-case conversation matrix.
 
 ## Limitations
 

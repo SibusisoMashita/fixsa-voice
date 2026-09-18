@@ -13,7 +13,8 @@ Data classification: wholly synthetic
 | Type safety | `npm run typecheck` | Pass |
 | Production compilation | `npm run build` | Pass, all required routes generated |
 | Lint | `npm run lint` | Pass, zero warnings |
-| Unit/integration | `npm test` | Pass, 12 tests |
+| Unit/integration | `npm test` | Pass, 19 tests |
+| Live voice workflows | `npm run test:voice:live` | Pass, all 8 cases after one prompt-approved safety-phrase assertion correction |
 | Browser journeys | `npm run test:e2e` | Pass, 36 runs across desktop, 360×800, 390×844, and tablet |
 | Dependency audit | `npm run audit` | Pass, zero vulnerabilities |
 | Browser console | In-app browser inspection | Pass, no error or warning entries |
@@ -24,6 +25,8 @@ Data classification: wholly synthetic
 - Consent precedes all audio capture.
 - Demo and real adapters share eight validated tool definitions.
 - Live partial/final transcript event handling is implemented for real mode.
+- Real AssemblyAI sessions were exercised with 17 synthesized South African English resident turns.
+- Four English voices were auditioned; `anna` was selected and all captured output remained below clipping.
 - Create and merge actions require explicit read-back confirmation.
 - Danger language blocks ordinary submission and avoids unverified numbers.
 - Public tracking uses an allowlisted field view.
@@ -42,4 +45,4 @@ Data classification: wholly synthetic
 - Corrected nested landmark markup found during the final operator-gate inspection.
 - Captured repository screenshots for landing, mobile reporting, operations, and judge scenarios.
 
-Real AssemblyAI audio was not exercised because no owner-provided API key is present. The server token route, browser event adapter, failure fallback, and shared tool contracts are implemented and tested without exposing or inventing a credential.
+Real AssemblyAI audio was exercised with an owner-authorised, ignored local credential. The permanent key remained server-side and was not written to source, fixtures, reports, or screenshots. Full voice evidence and limitations are in [voice-quality-report.md](voice-quality-report.md).

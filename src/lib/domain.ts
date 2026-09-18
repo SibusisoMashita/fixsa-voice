@@ -95,7 +95,7 @@ export function findDuplicates(fields: ExtractedFields, reports: ServiceReport[]
       ];
       return { reportId: report.id, reference: report.reference, score, distanceMeters: Math.round(distanceMeters), rationale };
     })
-    .filter((match) => match.score >= 0.55)
+    .filter((match) => match.score >= 0.55 && match.distanceMeters <= 1500)
     .sort((a, b) => b.score - a.score);
 }
 
@@ -111,15 +111,17 @@ export function extractDemoFields(text: string): ExtractedFields {
   const category = classifyIssue(text);
   const danger = detectImmediateDanger(text).requiresEmergencyGuidance;
   const area = /tamboti|clinic|ivory park/i.test(text) ? "Ivory Park" : /republic|randburg/i.test(text) ? "Randburg" : "Midrand";
+  const suppliedStreet = text.match(/\b(?:on|at|along|in)\s+([A-Z][A-Za-z' -]{1,45}\s(?:Road|Street|Avenue|Drive|Lane))\b/i)?.[1];
+  const address = /tamboti/i.test(text) ? "Tamboti Road" : /republic/i.test(text) ? "Republic Road" : suppliedStreet || "Location to be confirmed";
   return {
     category,
     location: {
-      address: /tamboti/i.test(text) ? "Tamboti Road" : /republic/i.test(text) ? "Republic Road" : "Location to be confirmed",
+      address,
       area,
       landmark: /clinic/i.test(text) ? "Local clinic" : /school/i.test(text) ? "School" : "Landmark not supplied",
       latitude: area === "Ivory Park" ? -25.9979 : area === "Randburg" ? -26.0991 : -25.9992,
       longitude: area === "Ivory Park" ? 28.1907 : area === "Randburg" ? 28.0067 : 28.1263,
-      precision: /road|street|clinic|school/i.test(text) ? "confirmed" : "approximate",
+      precision: address !== "Location to be confirmed" || /clinic|school/i.test(text) ? "confirmed" : "approximate",
     },
     duration: /yesterday/i.test(text) ? "Since yesterday" : /week/i.test(text) ? "About one week" : "Started recently",
     severity: danger ? "critical" : /large|flood|danger|deep|overflow/i.test(text) ? "high" : "moderate",

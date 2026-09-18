@@ -12,6 +12,37 @@ describe("voice tool integration contract", () => {
     expect(result).toHaveProperty("error");
   });
 
+  it("enforces the resident's latest spoken consent for state-changing tools", () => {
+    const creation = executeDemoTool(
+      { name:"create_service_request", arguments:{ fields:{}, confirmation_received:true } },
+      undefined,
+      { actor:"resident", latestResidentUtterance:"Yes, please create it", confirmationGranted:false, readbackRequested:false },
+    );
+    const merge = executeDemoTool(
+      { name:"merge_with_existing_report", arguments:{ reference:"FSA-2026-1842", evidence_summary:"Same leak", confirmation_received:true } },
+      undefined,
+      { actor:"resident", latestResidentUtterance:"Please create a new report", confirmationGranted:true },
+    );
+    const update = executeDemoTool(
+      { name:"update_report_status", arguments:{ reference:"FSA-2026-1842", status:"resolved", note:"Done" } },
+      undefined,
+      { actor:"resident", latestResidentUtterance:"Mark it resolved" },
+    );
+    expect(creation).toMatchObject({ error: expect.stringMatching(/confirmation is required/i) });
+    expect(merge).toMatchObject({ error: expect.stringMatching(/did not explicitly choose/i) });
+    expect(update).toMatchObject({ error: expect.stringMatching(/operator workspace/i) });
+  });
+
+  it("accepts an explicit yes after a spoken read-back checkpoint", () => {
+    const classified = executeDemoTool({ name:"classify_service_issue", arguments:{ transcript:"A pothole on Church Street is making cars swerve." } }) as { fields: unknown };
+    const result = executeDemoTool(
+      { name:"create_service_request", arguments:{ fields:classified.fields, confirmation_received:true } },
+      undefined,
+      { actor:"resident", latestResidentUtterance:"Yes, that is right. Create the report.", confirmationGranted:false, readbackRequested:true },
+    );
+    expect(result).toMatchObject({ confirmation_source:"explicit_spoken_readback", status:"reported" });
+  });
+
   it("blocks ordinary creation for immediate electricity danger", () => {
     const classified = executeDemoTool({ name:"classify_service_issue", arguments:{ transcript:"An exposed electrical cable is sparking beside the school." } }) as { fields: unknown };
     const result = executeDemoTool({ name:"create_service_request", arguments:{ fields: classified.fields, confirmation_received:true } });

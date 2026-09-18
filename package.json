@@ -14,6 +14,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:mobile": "playwright test --project=mobile-360 --project=mobile-390",
+    "test:voice:live": "tsx scripts/voice-live-eval.ts",
+    "test:voice:audition": "tsx scripts/voice-live-eval.ts --audition",
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/reset-demo.ts",
     "audit": "npm audit --audit-level=high",

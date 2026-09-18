@@ -16,6 +16,13 @@ describe("issue extraction", () => {
     expect(fields.severity).toBe("high");
     expect(fields.hazards).toContain("Road flooding");
   });
+
+  it("extracts a supplied street name outside the seeded demo locations", () => {
+    const fields = extractDemoFields("There is a deep pothole on Church Street in Midrand near the taxi rank.");
+    expect(fields.location.address).toBe("Church Street");
+    expect(fields.location.area).toBe("Midrand");
+    expect(fields.location.precision).toBe("confirmed");
+  });
 });
 
 describe("safety and privacy", () => {
@@ -52,5 +59,10 @@ describe("duplicate matching", () => {
     expect(matches[0]?.reference).toBe("FSA-2026-1842");
     expect(matches[0]?.score).toBeGreaterThanOrEqual(0.55);
     expect(matches[0]?.rationale.join(" ")).toContain("Same category");
+  });
+
+  it("does not treat a semantically similar report kilometres away as nearby", () => {
+    const fields = extractDemoFields("A large water leak on New Road in Midrand is flooding the road.");
+    expect(findDuplicates(fields, seedReports)).toHaveLength(0);
   });
 });

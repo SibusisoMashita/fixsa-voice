@@ -8,6 +8,7 @@ import { loadReports, saveDraft, upsertReport } from "@/lib/demo-store";
 import { seedReports } from "@/lib/seed";
 import { extractedFieldsSchema, type ReportDraft, type ServiceReport, type TranscriptSegment } from "@/lib/schemas";
 import { executeDemoTool, FIXSA_AGENT_PROMPT, voiceToolDefinitions } from "@/lib/voice-tools";
+import { FIXSA_GREETING, FIXSA_VOICE_INPUT, FIXSA_VOICE_OUTPUT } from "@/lib/voice-agent-config";
 
 type VoiceState = "idle" | "requesting" | "connecting" | "listening" | "processing" | "stopped" | "denied" | "error";
 type Mode = "demo" | "real";
@@ -87,9 +88,24 @@ export function VoiceReportClient() {
   const demoRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackTimeRef = useRef(0);
+  const playbackSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const streamRef = useRef<MediaStream | null>(null);
   const pendingToolsRef = useRef<Array<{ callId: string; result: unknown }>>([]);
   const lastEventRef = useRef<string>("");
+  const latestResidentUtteranceRef = useRef("");
+  const newResidentUtteranceRef = useRef(true);
+  const confirmationGrantedRef = useRef(false);
+  const agentTurnBufferRef = useRef("");
+  const previousAgentTurnRef = useRef("");
+
+  const stopPlayback = useCallback(() => {
+    for (const source of playbackSourcesRef.current) {
+      try { source.stop(); } catch { /* source already ended */ }
+    }
+    playbackSourcesRef.current.clear();
+    playbackTimeRef.current = audioContextRef.current?.currentTime || 0;
+  }, []);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -97,11 +113,13 @@ export function VoiceReportClient() {
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({ type: "session.end" }));
     wsRef.current?.close();
     streamRef.current?.getTracks().forEach((track) => track.stop());
+    stopPlayback();
     audioContextRef.current?.close().catch(() => undefined);
     wsRef.current = null;
     streamRef.current = null;
     audioContextRef.current = null;
-  }, []);
+    pendingToolsRef.current = [];
+  }, [stopPlayback]);
 
   useEffect(() => () => cleanup(), [cleanup]);
   useEffect(() => {
@@ -136,7 +154,11 @@ export function VoiceReportClient() {
     const source = audioContextRef.current.createBufferSource();
     source.buffer = buffer;
     source.connect(audioContextRef.current.destination);
-    source.start();
+    playbackTimeRef.current = Math.max(playbackTimeRef.current, audioContextRef.current.currentTime + 0.02);
+    source.start(playbackTimeRef.current);
+    playbackTimeRef.current += buffer.duration;
+    playbackSourcesRef.current.add(source);
+    source.onended = () => playbackSourcesRef.current.delete(source);
   }, [muted]);
 
   const handleMessage = useCallback(async (event: MessageEvent<string>) => {
@@ -146,22 +168,50 @@ export function VoiceReportClient() {
     if (message.type === "transcript.user.delta") setPartial(message.text || "");
     if (message.type === "transcript.user") {
       const text = message.text || "";
+      if (newResidentUtteranceRef.current) {
+        previousAgentTurnRef.current = agentTurnBufferRef.current;
+        agentTurnBufferRef.current = "";
+      }
+      latestResidentUtteranceRef.current = newResidentUtteranceRef.current
+        ? text
+        : `${latestResidentUtteranceRef.current} ${text}`.trim().slice(-1_000);
+      newResidentUtteranceRef.current = false;
+      if (/\b(?:no|not correct|wrong|change|correction)\b/i.test(text)) confirmationGrantedRef.current = false;
       setTranscript((current) => `${current} ${text}`.trim());
       setPartial("");
       setMessages((current) => [...current, { id: crypto.randomUUID(), speaker: "resident", text, timestamp: new Date().toISOString(), final: true }]);
       if (detectImmediateDanger(text).requiresEmergencyGuidance) setDanger(true);
     }
-    if (message.type === "transcript.agent") setMessages((current) => [...current, { id: crypto.randomUUID(), speaker: "agent", text: message.text || "", timestamp: new Date().toISOString(), final: true }]);
+    if (message.type === "transcript.agent") {
+      agentTurnBufferRef.current = `${agentTurnBufferRef.current} ${message.text || ""}`.trim().slice(-2_000);
+      setMessages((current) => [...current, { id: crypto.randomUUID(), speaker: "agent", text: message.text || "", timestamp: new Date().toISOString(), final: true }]);
+    }
     if (message.type === "reply.audio" && message.data) playAudio(message.data);
     if (message.type === "reply.done") {
-      if (message.status === "interrupted") pendingToolsRef.current = [];
+      if (message.status === "interrupted") {
+        pendingToolsRef.current = [];
+        stopPlayback();
+      }
       else flushTools();
+      newResidentUtteranceRef.current = true;
     }
     if (message.type === "reply.started" || message.type === "input.speech.started") lastEventRef.current = message.type;
     if (message.type === "tool.call" && message.name && message.call_id) {
       let result: Record<string, unknown>;
       try {
-        result = executeDemoTool({ name: message.name, arguments: message.arguments || {} }, loadReports()) as Record<string, unknown>;
+        if (message.name === "classify_service_issue") confirmationGrantedRef.current = false;
+        result = executeDemoTool(
+          { name: message.name, arguments: message.arguments || {} },
+          loadReports(),
+          {
+            actor: "resident",
+            latestResidentUtterance: latestResidentUtteranceRef.current,
+            confirmationGranted: confirmationGrantedRef.current,
+            readbackRequested: /is that (?:right|correct)|does that sound right/i.test(previousAgentTurnRef.current),
+          },
+        ) as Record<string, unknown>;
+        if (message.name === "confirm_report_details") confirmationGrantedRef.current = result.confirmed === true && !result.error;
+        if (["create_service_request", "merge_with_existing_report"].includes(message.name) && !result.error) confirmationGrantedRef.current = false;
         applyLocalToolMutation(message.name, message.arguments || {}, result);
       } catch (caught) {
         result = { error: caught instanceof Error ? caught.message : "The tool arguments were invalid." };
@@ -177,10 +227,15 @@ export function VoiceReportClient() {
       cleanup();
       setVoiceState("stopped");
     }
-  }, [cleanup, flushTools, playAudio]);
+  }, [cleanup, flushTools, playAudio, stopPlayback]);
 
   const startReal = async () => {
     setVoiceState("requesting");
+    latestResidentUtteranceRef.current = "";
+    newResidentUtteranceRef.current = true;
+    confirmationGrantedRef.current = false;
+    agentTurnBufferRef.current = "";
+    previousAgentTurnRef.current = "";
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext || !window.WebSocket) {
         setVoiceState("error");
@@ -212,7 +267,7 @@ export function VoiceReportClient() {
       };
       ws.addEventListener("open", () => {
         const agentId = process.env.NEXT_PUBLIC_ASSEMBLYAI_AGENT_ID;
-        const session = agentId ? { agent_id: agentId } : { system_prompt: FIXSA_AGENT_PROMPT, greeting: "Hi, I’m FixSA Voice. This is a synthetic hackathon demo, not an emergency or municipal service. What issue would you like to report?", tools: voiceToolDefinitions, output: { type: "audio", voice: "alba" } };
+        const session = agentId ? { agent_id: agentId } : { system_prompt: FIXSA_AGENT_PROMPT, greeting: FIXSA_GREETING, tools: voiceToolDefinitions, input: FIXSA_VOICE_INPUT, output: FIXSA_VOICE_OUTPUT };
         ws.send(JSON.stringify({ type: "session.update", session }));
       });
       ws.addEventListener("message", handleMessage);
@@ -310,7 +365,7 @@ export function VoiceReportClient() {
           {transcript || partial ? <p>{transcript} <span className="partial">{partial}</span></p> : <p className="partial">Your words will appear here. Audio is ephemeral by default.</p>}
           {messages.filter((item) => item.speaker === "agent").slice(-1).map((item) => <p key={item.id}><strong>FixSA:</strong> {item.text}</p>)}
         </div>
-        <div className="voice-controls"><button className="button button-ghost button-small" onClick={() => setMuted((value) => !value)}>{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>} {muted ? "Unmute agent" : "Mute agent"}</button><button className="button button-ghost button-small" onClick={() => { cleanup(); setTranscript(""); setPartial(""); setMessages([]); setVoiceState("idle"); setError(""); }}><RefreshCw size={16}/> Retry</button><button className="button button-ghost button-small" onClick={() => setShowManual(true)}><Keyboard size={16}/> Use keyboard</button></div>
+        <div className="voice-controls"><button className="button button-ghost button-small" onClick={() => { if (!muted) stopPlayback(); setMuted((value) => !value); }}>{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>} {muted ? "Unmute agent" : "Mute agent"}</button><button className="button button-ghost button-small" onClick={() => { cleanup(); setTranscript(""); setPartial(""); setMessages([]); setVoiceState("idle"); setError(""); }}><RefreshCw size={16}/> Retry</button><button className="button button-ghost button-small" onClick={() => setShowManual(true)}><Keyboard size={16}/> Use keyboard</button></div>
       </section>
 
       <aside className="settings-list">

@@ -136,9 +136,18 @@ export const voiceToolDefinitions = [
 
 const toolCallSchema = z.object({ name: z.string(), arguments: z.record(z.string(), z.unknown()) });
 
-export function executeDemoTool(input: unknown, reports: ServiceReport[] = seedReports) {
+type ToolExecutionContext = {
+  actor?: "resident" | "operator";
+  latestResidentUtterance?: string;
+  confirmationGranted?: boolean;
+  readbackRequested?: boolean;
+};
+
+export function executeDemoTool(input: unknown, reports: ServiceReport[] = seedReports, context: ToolExecutionContext = {}) {
   const call = toolCallSchema.parse(input);
   const args = call.arguments;
+  const latestUtterance = context.latestResidentUtterance || "";
+  const hasExplicitSpokenConfirmation = Boolean(context.readbackRequested && /\b(?:yes|correct|right|confirm(?:ed)?)\b/i.test(latestUtterance));
   switch (call.name) {
     case "classify_service_issue": {
       const transcript = z.string().min(5).parse(args.transcript);
@@ -159,19 +168,31 @@ export function executeDemoTool(input: unknown, reports: ServiceReport[] = seedR
     }
     case "confirm_report_details": {
       const parsed = z.object({ confirmed: z.boolean(), summary: z.string().min(10) }).parse(args);
+      if (context.actor === "resident" && parsed.confirmed && !/\b(?:yes|correct|right|confirm(?:ed)?)\b/i.test(latestUtterance)) {
+        return { error: "Confirmation blocked: the resident's latest response did not explicitly confirm the read-back.", confirmed: false, confirmation_id: null };
+      }
       return { ...parsed, confirmation_id: parsed.confirmed ? `confirm_${Date.now()}` : null };
     }
     case "create_service_request": {
+      if (context.actor === "resident" && !context.confirmationGranted && !hasExplicitSpokenConfirmation) {
+        return { error: "Creation blocked: a successful explicit read-back confirmation is required first." };
+      }
       const parsed = z.object({ fields: extractedFieldsSchema, confirmation_received: z.literal(true) }).safeParse(args);
       if (!parsed.success) return { error: "Creation blocked: validated fields and explicit confirmation_received=true are required." };
       const priority = assignPriority(parsed.data.fields);
       if (priority === "emergency_hold") return { error: "Creation blocked by immediate-danger safety hold. Give emergency guidance and request authorised operator review." };
-      return { reference: makeReference(1948), status: "reported", priority, sla_hours: slaHoursFor(priority), synthetic: true };
+      return { reference: makeReference(1948), status: "reported", priority, sla_hours: slaHoursFor(priority), confirmation_source: context.confirmationGranted ? "confirmation_tool" : "explicit_spoken_readback", synthetic: true };
     }
     case "merge_with_existing_report": {
+      if (context.actor === "resident" && !context.confirmationGranted && !hasExplicitSpokenConfirmation) {
+        return { error: "Merge blocked: a successful explicit read-back confirmation is required first." };
+      }
+      if (context.actor === "resident" && !/\b(?:merge|add|attach)\b/i.test(latestUtterance)) {
+        return { error: "Merge blocked: the resident did not explicitly choose a merge in their latest response." };
+      }
       const parsed = z.object({ reference: z.string(), evidence_summary: z.string().min(3), confirmation_received: z.literal(true) }).safeParse(args);
       if (!parsed.success) return { error: "Merge blocked: exact existing reference, evidence summary, and explicit confirmation are required." };
-      return { reference: parsed.data.reference, merged: true, reversible: true, evidence: redactSensitiveText(parsed.data.evidence_summary), synthetic: true };
+      return { reference: parsed.data.reference, merged: true, reversible: true, evidence: redactSensitiveText(parsed.data.evidence_summary), confirmation_source: context.confirmationGranted ? "confirmation_tool" : "explicit_spoken_readback", synthetic: true };
     }
     case "attach_evidence": {
       const parsed = z.object({ reference: z.string(), note: z.string().min(3).max(500) }).parse(args);
@@ -183,6 +204,7 @@ export function executeDemoTool(input: unknown, reports: ServiceReport[] = seedR
       return report ? { reference, status: report.status, last_update: report.updatedAt, public_notes: report.publicNotes } : { error: `No synthetic report found for ${reference}.` };
     }
     case "update_report_status": {
+      if (context.actor === "resident") return { error: "Status updates require an authenticated operator workspace." };
       const parsed = z.object({ reference: z.string(), status: z.enum(reportStatuses), note: z.string().min(3).max(500) }).parse(args);
       const report = reports.find((item) => item.reference === parsed.reference);
       if (!report) return { error: "Report not found in the synthetic demo dataset." };
@@ -196,7 +218,11 @@ export function executeDemoTool(input: unknown, reports: ServiceReport[] = seedR
   }
 }
 
-export const FIXSA_AGENT_PROMPT = `You are FixSA Voice, a calm civic service-delivery reporting assistant in a clearly labelled hackathon demo. Keep spoken turns brief and plain.
+export const FIXSA_AGENT_PROMPT = `SOUND HUMAN AND BE BRIEF. Keep every spoken reply to one or two short sentences unless you are reading back a report for confirmation.
+
+You are FixSA Voice, a calm South African civic service reporting assistant in a clearly labelled hackathon demo. You sound warm, grounded and unhurried. Use plain South African English, natural contractions and a conversational rhythm. Match the resident's length and energy. Acknowledge what they said without repeating their whole sentence.
+
+Never say "certainly", "absolutely", "great question", "happy to help", or "I understand your concern". Never use headings, numbered lists, markdown, emojis, exclamation marks, or bureaucratic phrases in speech. Ask one question at a time.
 
 You are not a municipality, utility, or emergency service. Never claim a report was dispatched to a real operator. All data and work orders are synthetic unless a future authorised integration is configured.
 
@@ -204,9 +230,18 @@ Workflow:
 1. Listen naturally. Call classify_service_issue after the resident describes the issue.
 2. Ask only for missing required information: category, usable location or landmark, duration, severity/hazards, and useful detail.
 3. If speech indicates fire, exposed electrical infrastructure, gas, serious injury, crime in progress, or a medical emergency: stop ordinary automation. Tell the person to move to safety and contact their official local emergency service. Do not invent or state a phone number. Do not call create_service_request.
-4. When category and location are known, call search_nearby_reports. Explain likely matches, including why they match.
-5. Read back every material field and ask for an explicit yes/no confirmation. Call confirm_report_details with the actual answer.
-6. Only after confirmed=true, call create_service_request or, if the resident explicitly chooses the duplicate, merge_with_existing_report.
+4. When category and location are known, call search_nearby_reports using the exact latitude and longitude returned by classify_service_issue. Never guess coordinates.
+5. CRITICAL ORDER RULE: do not mention or offer a duplicate choice yet. First read back every material field, ask for an explicit yes/no confirmation, and call confirm_report_details with the actual answer.
+6. Only after confirm_report_details returns confirmed=true may you create or merge. If there is no likely match, call create_service_request. If there is a likely match, explain why it matches and ask whether to merge; call merge_with_existing_report only when the resident's latest words explicitly say to merge or add their evidence to the existing report. A request to create a report is not permission to merge.
 7. Speak the returned reference one group at a time and remind the resident it is a demo reference.
+
+Pronunciation and read-back:
+- Say FixSA as "Fix S A".
+- Read a reference such as FSA-2026-1948 as "F S A, two zero two six, one nine four eight".
+- Round times naturally. Do not read punctuation, JSON, field names, underscores, or tool names aloud.
+- During confirmation, group the read-back into two or three natural sentences, then ask: "Is that right?"
+- If the resident corrects anything, acknowledge it briefly, update the detail and read back only the changed part before asking again.
+
+Resident permissions: residents may create, merge, attach evidence and check public status. Never call update_report_status for a resident; that is for an authenticated operator workspace only.
 
 Privacy: audio is ephemeral by default. Never repeat phone numbers, identity numbers, email addresses, or precise private-home details. When in doubt, call the relevant tool rather than inventing a result.`;
