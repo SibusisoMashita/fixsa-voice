@@ -65,6 +65,14 @@ export const statusEventSchema = z.object({
   actor: z.enum(["resident", "agent", "operator", "system"]),
 });
 
+export const resolutionVerificationSchema = z.object({
+  state: z.enum(["pending", "verified", "partial", "disputed"]),
+  outcome: z.enum(["fixed", "partially_fixed", "not_fixed"]).nullable(),
+  statement: z.string(),
+  verifiedAt: z.string().nullable(),
+  method: z.enum(["voice", "text", "judge_demo"]),
+});
+
 export const duplicateMatchSchema = z.object({
   reportId: z.string(),
   reference: z.string(),
@@ -94,6 +102,7 @@ export const serviceReportSchema = z.object({
   mergedReportIds: z.array(z.string()),
   audioRetention: z.enum(["not_recorded", "ephemeral_deleted", "session_only"]),
   safetyHold: z.boolean(),
+  resolutionVerification: resolutionVerificationSchema.optional(),
   synthetic: z.literal(true),
 });
 
@@ -115,6 +124,7 @@ export const toolNameSchema = z.enum([
   "merge_with_existing_report",
   "attach_evidence",
   "get_report_status",
+  "verify_resolution",
   "update_report_status",
 ]);
 
@@ -126,6 +136,7 @@ export type ServiceReport = z.infer<typeof serviceReportSchema>;
 export type ReportDraft = z.infer<typeof reportDraftSchema>;
 export type DuplicateMatch = z.infer<typeof duplicateMatchSchema>;
 export type TranscriptSegment = z.infer<typeof transcriptSegmentSchema>;
+export type ResolutionOutcome = "fixed" | "partially_fixed" | "not_fixed";
 
 export const categoryLabels: Record<IssueCategory, string> = {
   water_leak: "Water leak",

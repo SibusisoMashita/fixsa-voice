@@ -48,7 +48,7 @@ flowchart TB
 
 ## Data model
 
-Core records are reports, conversations, transcript segments, extracted fields, evidence, duplicate matches, status events, assignments, areas, categories, SLA rules, users/roles, and immutable audit events. `db/migrations/001_initial.sql` is PostgreSQL compatible and keeps audit events append-only by policy.
+Core records are reports, conversations, transcript segments, extracted fields, evidence, duplicate matches, resolution verifications, status events, assignments, areas, categories, SLA rules, users/roles, and immutable audit events. Proof of Fix preserves operator resolution and resident verification as distinct evidence. `db/migrations/001_initial.sql` is PostgreSQL compatible and keeps audit events append-only by policy.
 
 ## Security controls
 

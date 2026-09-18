@@ -20,22 +20,22 @@
 
 **Voice-over:** “It never silently deduplicates and never creates first. The resident sees why this looks like the same leak, hears the full report, and explicitly chooses to merge evidence. Only then does the structured tool run.”
 
-## 1:03–1:19 — Track and operate
+## 1:03–1:19 — The reason to win: Proof of Fix
 
-**Visual:** Success reference, public timeline, then operator map and report detail.
+**Visual:** Open FSA-2026-1811, choose “Only partly fixed,” and confirm. Show the automatic reopen, public proof, then operator audit.
 
-**Voice-over:** “The resident gets a reference and a privacy-safe status view. Operators receive structured triage, SLA signals, map context, evidence, assignments, and an immutable audit trail.”
+**Voice-over:** “Most tools stop when a ticket says resolved. FixSA asks the resident whether the repair actually worked. A confirmed fix earns independent proof; partial or failed work reopens automatically. Trust is the product.”
 
-## 1:19–1:35 — Safety differentiation
+## 1:19–1:34 — Safety differentiation
 
 **Visual:** Run the dangerous electricity scenario and show the red safety stop.
 
 **Voice-over:** “When exposed electricity is sparking near a school, FixSA does not create an ordinary ticket. It stops, gives region-safe emergency guidance, and never invents a number.”
 
-## 1:35–1:48 — Close
+## 1:34–1:48 — Close
 
 **Visual:** Architecture/tool contract strip, then cover image.
 
-**Voice-over:** “Real AssemblyAI voice, deterministic demo reliability, and a clear path to authorised municipal integration. FixSA Voice: Speak. Track. Fix.”
+**Voice-over:** “Real AssemblyAI voice, resident-verified outcomes, deterministic demo reliability, and a clear path to authorised municipal integration. FixSA Voice: Speak. Track. Prove.”
 
 **On-screen footer:** “Hackathon demo · Synthetic data · A VALO Systems concept.”

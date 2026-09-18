@@ -3,7 +3,8 @@
 import { seedReports } from "./seed";
 import type { ReportDraft, ServiceReport } from "./schemas";
 
-const REPORTS_KEY = "fixsa:demo-reports:v1";
+const REPORTS_KEY = "fixsa:demo-reports:v2";
+const LEGACY_REPORTS_KEY = "fixsa:demo-reports:v1";
 const DRAFT_KEY = "fixsa:report-draft:v1";
 
 export function loadReports(): ServiceReport[] {
@@ -43,6 +44,7 @@ export function loadDraft(): ReportDraft | null {
 
 export function resetDemoStore() {
   window.localStorage.removeItem(REPORTS_KEY);
+  window.localStorage.removeItem(LEGACY_REPORTS_KEY);
   window.sessionStorage.removeItem(DRAFT_KEY);
   window.dispatchEvent(new Event("fixsa:reports-updated"));
 }

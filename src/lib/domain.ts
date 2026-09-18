@@ -1,4 +1,4 @@
-import { categoryLabels, type DuplicateMatch, type ExtractedFields, type IssueCategory, type Priority, type ServiceReport } from "./schemas";
+import { categoryLabels, type DuplicateMatch, type ExtractedFields, type IssueCategory, type Priority, type ResolutionOutcome, type ServiceReport } from "./schemas";
 
 const categoryTerms: Record<IssueCategory, string[]> = {
   water_leak: ["water", "leak", "pipe", "burst", "flooding"],
@@ -128,5 +128,39 @@ export function extractDemoFields(text: string): ExtractedFields {
     hazards: danger ? ["Immediate danger indicated"] : /flood/i.test(text) ? ["Road flooding", "Slippery surface"] : /swerve|deep/i.test(text) ? ["Vehicles swerving"] : [],
     peopleAffected: /clinic|school|road/i.test(text) ? 50 : 10,
     details: redactSensitiveText(text),
+  };
+}
+
+export function applyResolutionVerification(
+  report: ServiceReport,
+  outcome: ResolutionOutcome,
+  statement: string,
+  method: "voice" | "text" | "judge_demo" = "voice",
+  now = new Date().toISOString(),
+): ServiceReport {
+  if (report.status !== "resolved") throw new Error("Only a resolved report awaiting resident verification can be checked.");
+  if (report.resolutionVerification && report.resolutionVerification.state !== "pending") throw new Error("This resolution has already been checked by a resident.");
+
+  const redactedStatement = redactSensitiveText(statement.trim()).slice(0, 500);
+  if (redactedStatement.length < 3) throw new Error("A short resident statement is required.");
+  const verified = outcome === "fixed";
+  const nextStatus = verified ? "resolved" : "in_progress";
+  const nextState = outcome === "fixed" ? "verified" : outcome === "partially_fixed" ? "partial" : "disputed";
+  const publicNote = verified
+    ? "Resolution independently confirmed by a resident through Proof of Fix."
+    : outcome === "partially_fixed"
+      ? "Resident reported a partial fix. The synthetic work order was reopened for follow-up."
+      : "Resident reported that the issue remains. The synthetic work order was reopened for follow-up.";
+
+  return {
+    ...report,
+    status: nextStatus,
+    updatedAt: now,
+    resolutionVerification: { state: nextState, outcome, statement: redactedStatement, verifiedAt: now, method },
+    publicNotes: [...report.publicNotes.filter((note) => !/awaiting resident confirmation/i.test(note)), publicNote],
+    statusEvents: [
+      ...report.statusEvents,
+      { id: `proof-${report.id}-${Date.parse(now)}`, status: nextStatus, at: now, note: publicNote, public: true, actor: "resident" },
+    ],
   };
 }

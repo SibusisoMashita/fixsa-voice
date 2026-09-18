@@ -112,6 +112,7 @@ export const seedReports: ServiceReport[] = [
     mergedReportIds: [],
     audioRetention: "ephemeral_deleted",
     safetyHold: false,
+    resolutionVerification: { state: "pending", outcome: null, statement: "", verifiedAt: null, method: "judge_demo" },
     synthetic: true,
   },
   {

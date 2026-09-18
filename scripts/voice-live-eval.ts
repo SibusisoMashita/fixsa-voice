@@ -113,6 +113,18 @@ const cases: VoiceCase[] = [
     forbiddenTools: ["update_report_status"],
     agentMustMatch: [/operator|can(?:not|'t)|not able|workspace/i],
   },
+  {
+    id: "proof-of-fix",
+    description: "Resident disputes part of a claimed repair and the work order reopens after read-back confirmation",
+    turns: [
+      "Please check demo report F S A two zero two six one eight one one. I want to verify the repair.",
+      "It is only partly fixed. One streetlight is working, but the second light is still off.",
+      "Yes, that is right. Confirm the partial fix and reopen the demo report.",
+    ],
+    expectedTools: ["get_report_status", "confirm_report_details", "verify_resolution"],
+    readbackBeforeTool: "verify_resolution",
+    agentMustMatch: [/reopen|follow.?up|in progress/i],
+  },
 ];
 
 const sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -285,7 +297,7 @@ async function openSession(voice: string, greeting = FIXSA_GREETING) {
           { actor: "resident", ...toolContext },
         ) as Record<string, unknown>;
         if (event.name === "confirm_report_details") confirmationGranted = result.confirmed === true && !result.error;
-        if (["create_service_request", "merge_with_existing_report"].includes(event.name) && !result.error) confirmationGranted = false;
+        if (["create_service_request", "merge_with_existing_report", "verify_resolution"].includes(event.name) && !result.error) confirmationGranted = false;
         completedTools.push({ name: event.name, callId: event.call_id, arguments: args, context: toolContext, result });
         pendingTools.push({ callId: event.call_id, result });
       } catch (error) {

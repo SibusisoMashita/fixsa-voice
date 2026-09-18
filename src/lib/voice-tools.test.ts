@@ -59,4 +59,18 @@ describe("voice tool integration contract", () => {
     const result = executeDemoTool({ name:"attach_evidence", arguments:{ reference:"FSA-2026-1842", note:"Call 082 123 4567 about the leak" } }) as { note:string };
     expect(result.note).toContain("[PHONE REDACTED]");
   });
+
+  it("turns a disputed repair into a reopened Proof of Fix result", () => {
+    const result = executeDemoTool({ name:"verify_resolution", arguments:{ reference:"FSA-2026-1811", outcome:"not_fixed", resident_statement:"The lights are still off." } });
+    expect(result).toMatchObject({ verification_state:"disputed", status:"in_progress", reopened:true, synthetic:true });
+  });
+
+  it("blocks a resident Proof of Fix mutation before explicit read-back confirmation", () => {
+    const result = executeDemoTool(
+      { name:"verify_resolution", arguments:{ reference:"FSA-2026-1811", outcome:"fixed", resident_statement:"Both lights are working." } },
+      undefined,
+      { actor:"resident", latestResidentUtterance:"Both lights are working", confirmationGranted:false, readbackRequested:false },
+    );
+    expect(result).toMatchObject({ error: expect.stringMatching(/explicit confirmation/i) });
+  });
 });

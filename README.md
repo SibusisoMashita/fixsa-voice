@@ -6,6 +6,8 @@
 
 FixSA Voice turns a resident’s spoken description of a water leak, pothole, electricity fault, sewer overflow, broken streetlight, illegal dumping, or damaged public asset into a complete, deduplicated, trackable work order. It asks only for missing information, explains possible duplicates, reads the completed report back, and requires explicit confirmation before creating or merging anything.
 
+Its winning differentiator is **Proof of Fix**: “resolved” becomes a claim awaiting resident verification. A resident can confirm the repair, report a partial fix, or dispute the closure by voice. Partial and failed repairs reopen automatically with a public and operator audit event. Trust is the product.
+
 ## Demo boundary
 
 FixSA Voice is a **hackathon demonstration**, not an official government, municipal, utility, dispatch, or emergency service. All seeded people, locations, references, teams, metrics, notes, and status changes are synthetic. A demo reference is not evidence that a real operator received a report.
@@ -20,7 +22,7 @@ Residents naturally describe a situation as a story, while service systems expec
 
 - Public landing, report, clarification/review, success, tracking, demo scenarios, about, privacy, terms, accessibility, help, 404, and recovery states.
 - Operator dashboard, report queue, report detail, duplicate review, accessible map triage, analytics, and settings/integrations.
-- Deterministic one-click scenarios for a water leak, dangerous electricity fault, pothole, and duplicate report.
+- Deterministic one-click scenarios for Proof of Fix, a water leak, dangerous electricity fault, pothole, and duplicate report.
 - Resident, operator, supervisor-ready data model, plus an HTTP-only-cookie demo-role gate with no private credentials.
 
 ## Screenshots
@@ -53,6 +55,7 @@ The implementation follows AssemblyAI’s current [browser integration](https://
 - `merge_with_existing_report`
 - `attach_evidence`
 - `get_report_status`
+- `verify_resolution`
 - `update_report_status`
 
 Create and merge operations fail closed without explicit confirmation. Immediate-danger electricity content produces `emergency_hold`, and public evidence is redacted before output.
@@ -103,6 +106,7 @@ Open [http://localhost:3000](http://localhost:3000). Demo mode works without sec
 
 - `/demo` for judge scenarios
 - `/track?ref=FSA-2026-1842` for public tracking
+- `/verify?ref=FSA-2026-1811` for the resident Proof of Fix loop
 - `/ops` for the labelled safe demo-role entry and operations workspace
 
 ### Real AssemblyAI mode

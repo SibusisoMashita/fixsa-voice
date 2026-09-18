@@ -13,10 +13,10 @@
    Real-time partials, end-of-turn handling, interruption-aware replies, spoken output, and JSON-schema tool calls.
 
 5. **The tool chain**
-   Show all eight tools and the progressive confirmation gate.
+   Show all nine tools and the progressive confirmation gate.
 
-6. **Original behaviour: explainable duplicate resolution**
-   Category + distance + time + semantic overlap; resident choice; reversible operator decision.
+6. **The reason to win: Proof of Fix**
+   “Resolved” is a claim. Residents verify, partially confirm, or dispute it; failed work reopens automatically. Trust is the product.
 
 7. **Safety and privacy are workflow states**
    Consent, ephemeral audio, redacted public fields, immediate-danger stop, no fabricated emergency number.
@@ -33,5 +33,5 @@
 11. **Judging evidence**
     Technology, presentation, business value, and originality mapped to visible screens and tests.
 
-12. **Speak. Track. Fix.**
-    QR/link to deployed demo, public repository, and demo reference FSA-2026-1842.
+12. **Speak. Track. Prove.**
+    QR/link to deployed demo, public repository, and Proof of Fix reference FSA-2026-1811.

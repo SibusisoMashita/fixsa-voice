@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { assignPriority, extractDemoFields, findDuplicates, makeReference, redactSensitiveText, slaHoursFor } from "./domain";
+import { applyResolutionVerification, assignPriority, extractDemoFields, findDuplicates, makeReference, redactSensitiveText, slaHoursFor } from "./domain";
 import { seedReports } from "./seed";
 import { extractedFieldsSchema, reportStatuses, type ServiceReport } from "./schemas";
 
@@ -120,6 +120,20 @@ export const voiceToolDefinitions = [
   },
   {
     type: "function",
+    name: "verify_resolution",
+    description: "Record whether a resident confirms, partially confirms, or disputes a claimed fix. A partial or failed fix reopens the synthetic work order.",
+    parameters: {
+      type: "object",
+      properties: {
+        reference: { type: "string", pattern: "^FSA-[0-9]{4}-[0-9]{4}$" },
+        outcome: { type: "string", enum: ["fixed", "partially_fixed", "not_fixed"] },
+        resident_statement: { type: "string", minLength: 3, maxLength: 500, description: "A concise redacted account of what the resident observed." },
+      },
+      required: ["reference", "outcome", "resident_statement"],
+    },
+  },
+  {
+    type: "function",
     name: "update_report_status",
     description: "Demo-operator-only status update. Reject invalid state transitions.",
     parameters: {
@@ -203,6 +217,32 @@ export function executeDemoTool(input: unknown, reports: ServiceReport[] = seedR
       const report = reports.find((item) => item.reference === reference);
       return report ? { reference, status: report.status, last_update: report.updatedAt, public_notes: report.publicNotes } : { error: `No synthetic report found for ${reference}.` };
     }
+    case "verify_resolution": {
+      if (context.actor === "resident" && !context.confirmationGranted && !hasExplicitSpokenConfirmation) {
+        return { error: "Verification blocked: read the resident outcome back and receive explicit confirmation first." };
+      }
+      const parsed = z.object({
+        reference: z.string().regex(/^FSA-\d{4}-\d{4}$/),
+        outcome: z.enum(["fixed", "partially_fixed", "not_fixed"]),
+        resident_statement: z.string().min(3).max(500),
+      }).parse(args);
+      const report = reports.find((item) => item.reference === parsed.reference.toUpperCase());
+      if (!report) return { error: "Report not found in the synthetic demo dataset." };
+      try {
+        const updated = applyResolutionVerification(report, parsed.outcome, parsed.resident_statement, "voice");
+        return {
+          reference: updated.reference,
+          outcome: parsed.outcome,
+          verification_state: updated.resolutionVerification?.state,
+          status: updated.status,
+          reopened: updated.status === "in_progress",
+          public_note: updated.publicNotes.at(-1),
+          synthetic: true,
+        };
+      } catch (caught) {
+        return { error: caught instanceof Error ? caught.message : "The resolution could not be verified." };
+      }
+    }
     case "update_report_status": {
       if (context.actor === "resident") return { error: "Status updates require an authenticated operator workspace." };
       const parsed = z.object({ reference: z.string(), status: z.enum(reportStatuses), note: z.string().min(3).max(500) }).parse(args);
@@ -227,6 +267,7 @@ Never say "certainly", "absolutely", "great question", "happy to help", or "I un
 You are not a municipality, utility, or emergency service. Never claim a report was dispatched to a real operator. All data and work orders are synthetic unless a future authorised integration is configured.
 
 Workflow:
+0. If the resident wants to check a claimed repair and gives a FixSA reference, use get_report_status. For a resolved report, ask whether it is fixed, partially fixed, or not fixed. Read back the outcome, ask "Is that right?", and call confirm_report_details with their actual answer. Only after it returns confirmed=true may you call verify_resolution. Explain that a partial or failed fix reopens the synthetic work order.
 1. Listen naturally. Call classify_service_issue after the resident describes the issue.
 2. Ask only for missing required information: category, usable location or landmark, duration, severity/hazards, and useful detail.
 3. If speech indicates fire, exposed electrical infrastructure, gas, serious injury, crime in progress, or a medical emergency: stop ordinary automation. Tell the person to move to safety and contact their official local emergency service. Do not invent or state a phone number. Do not call create_service_request.
@@ -242,6 +283,6 @@ Pronunciation and read-back:
 - During confirmation, group the read-back into two or three natural sentences, then ask: "Is that right?"
 - If the resident corrects anything, acknowledge it briefly, update the detail and read back only the changed part before asking again.
 
-Resident permissions: residents may create, merge, attach evidence and check public status. Never call update_report_status for a resident; that is for an authenticated operator workspace only.
+Resident permissions: residents may create, merge, attach evidence, check public status, and verify a claimed resolution. Never call update_report_status for a resident; that is for an authenticated operator workspace only.
 
 Privacy: audio is ephemeral by default. Never repeat phone numbers, identity numbers, email addresses, or precise private-home details. When in doubt, call the relevant tool rather than inventing a result.`;

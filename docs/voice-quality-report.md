@@ -29,8 +29,11 @@ The same greeting was auditioned with four current English voices:
 | Privacy | Supplied email is not repeated in speech | Pass |
 | Correction | Corrected landmark and duration invalidate earlier state and require a new confirmation | Pass |
 | Resident permissions | Public status lookup succeeds; resident status mutation is refused | Pass |
+| Proof of Fix | Resolved-report lookup, partial-fix read-back, explicit confirmation, automatic reopen | Pass |
 
 The final consolidated run passed every substantive check except one wording assertion: the safe phrase “move to safety” was not included in the test’s accepted alternatives. After adding that exact prompt-approved phrase, the targeted electrical-danger rerun passed 1/1. No product safety behavior was changed for that assertion repair.
+
+After Proof of Fix was added, a targeted live AssemblyAI session passed every new check: `get_report_status`, `confirm_report_details`, and `verify_resolution` completed in order; the spoken read-back preceded the state change; the agent explained the reopen; all three resident turns were transcribed; and the session had no protocol errors. The substantive repair statements transcribed exactly; the only reference variation was punctuation and spacing in “FSA 2026 1811.”
 
 Across the consolidated run, all 17 resident turns were transcribed. Mean literal word error rate was 8.7%; ordinary civic sentences were generally exact, while most counted differences came from reference-number spacing and spoken email formatting. Agent audio peaked at 0.748, below clipping.
 
@@ -44,6 +47,7 @@ Across the consolidated run, all 17 resident turns were transcribed. Mean litera
 - Required geographic proximity for duplicate matching; semantic similarity alone no longer marks reports kilometres apart as nearby.
 - Grouped split resident and agent transcript segments by conversational turn.
 - Enforced confirmation and resident/operator permissions in the client tool contract, independent of model prompt compliance.
+- Applied the same fail-closed read-back confirmation gate to resident repair verification and automatic reopen actions.
 
 ## Limits
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignPriority, calculateSlaDue, classifyIssue, detectImmediateDanger, extractDemoFields, findDuplicates, redactSensitiveText, slaHoursFor } from "./domain";
+import { applyResolutionVerification, assignPriority, calculateSlaDue, classifyIssue, detectImmediateDanger, extractDemoFields, findDuplicates, redactSensitiveText, slaHoursFor } from "./domain";
 import { seedReports } from "./seed";
 
 describe("issue extraction", () => {
@@ -64,5 +64,27 @@ describe("duplicate matching", () => {
   it("does not treat a semantically similar report kilometres away as nearby", () => {
     const fields = extractDemoFields("A large water leak on New Road in Midrand is flooding the road.");
     expect(findDuplicates(fields, seedReports)).toHaveLength(0);
+  });
+});
+
+describe("Proof of Fix", () => {
+  const resolved = seedReports.find((report) => report.reference === "FSA-2026-1811")!;
+
+  it("adds independent resident confirmation without closing away the audit trail", () => {
+    const updated = applyResolutionVerification(resolved, "fixed", "Both lights are working tonight.", "voice", "2026-09-18T12:00:00.000Z");
+    expect(updated.status).toBe("resolved");
+    expect(updated.resolutionVerification).toMatchObject({ state: "verified", outcome: "fixed", method: "voice" });
+    expect(updated.statusEvents.at(-1)).toMatchObject({ actor: "resident", public: true });
+  });
+
+  it("reopens a partially fixed work order and redacts the resident statement", () => {
+    const updated = applyResolutionVerification(resolved, "partially_fixed", "One light works. Call 082 123 4567 for the other.", "voice", "2026-09-18T12:00:00.000Z");
+    expect(updated.status).toBe("in_progress");
+    expect(updated.resolutionVerification?.state).toBe("partial");
+    expect(updated.resolutionVerification?.statement).toContain("[PHONE REDACTED]");
+  });
+
+  it("rejects verification for work that is not resolved", () => {
+    expect(() => applyResolutionVerification(seedReports[0], "fixed", "It is fixed.")).toThrow(/resolved report/i);
   });
 });

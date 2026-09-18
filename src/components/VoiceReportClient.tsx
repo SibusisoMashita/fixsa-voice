@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ImagePlus, Keyboard, LocateFixed, Mic, RefreshCw, Send, ShieldCheck, StopCircle, Volume2, VolumeX } from "lucide-react";
-import { assignPriority, calculateSlaDue, detectImmediateDanger, extractDemoFields, findDuplicates, slaHoursFor } from "@/lib/domain";
+import { applyResolutionVerification, assignPriority, calculateSlaDue, detectImmediateDanger, extractDemoFields, findDuplicates, slaHoursFor } from "@/lib/domain";
 import { loadReports, saveDraft, upsertReport } from "@/lib/demo-store";
 import { seedReports } from "@/lib/seed";
 import { extractedFieldsSchema, type ReportDraft, type ServiceReport, type TranscriptSegment } from "@/lib/schemas";
@@ -59,6 +60,12 @@ function applyLocalToolMutation(name: string, args: Record<string, unknown>, res
     const existing = loadReports().find((report) => report.reference === args.reference);
     if (existing) upsertReport({ ...existing, updatedAt: now, evidence: [...existing.evidence, { id: crypto.randomUUID(), type: "note", name: result.note, addedAt: now, public: false }] });
   }
+  if (name === "verify_resolution" && typeof args.reference === "string" && typeof args.outcome === "string" && typeof args.resident_statement === "string") {
+    const existing = loadReports().find((report) => report.reference === args.reference);
+    if (existing && ["fixed", "partially_fixed", "not_fixed"].includes(args.outcome)) {
+      upsertReport(applyResolutionVerification(existing, args.outcome as "fixed" | "partially_fixed" | "not_fixed", args.resident_statement, "voice", now));
+    }
+  }
   if (name === "update_report_status" && typeof args.reference === "string" && typeof result.status === "string") {
     const existing = loadReports().find((report) => report.reference === args.reference);
     if (existing) upsertReport({ ...existing, updatedAt: now, status: result.status as ServiceReport["status"], statusEvents: [...existing.statusEvents, { id: crypto.randomUUID(), status: result.status as ServiceReport["status"], at: now, note: String(result.note || "Demo status updated."), public: true, actor: "operator" }] });
@@ -70,6 +77,8 @@ export function VoiceReportClient() {
   const search = useSearchParams();
   const requestedScenario = search.get("scenario") || "water";
   const requestedMode = search.get("mode") === "real" ? "real" : "demo";
+  const verificationIntent = search.get("intent") === "verification";
+  const verificationReference = (search.get("ref") || "FSA-2026-1811").toUpperCase();
   const [mode, setMode] = useState<Mode>(requestedMode);
   const [consent, setConsent] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
@@ -211,7 +220,7 @@ export function VoiceReportClient() {
           },
         ) as Record<string, unknown>;
         if (message.name === "confirm_report_details") confirmationGrantedRef.current = result.confirmed === true && !result.error;
-        if (["create_service_request", "merge_with_existing_report"].includes(message.name) && !result.error) confirmationGrantedRef.current = false;
+        if (["create_service_request", "merge_with_existing_report", "verify_resolution"].includes(message.name) && !result.error) confirmationGrantedRef.current = false;
         applyLocalToolMutation(message.name, message.arguments || {}, result);
       } catch (caught) {
         result = { error: caught instanceof Error ? caught.message : "The tool arguments were invalid." };
@@ -267,7 +276,9 @@ export function VoiceReportClient() {
       };
       ws.addEventListener("open", () => {
         const agentId = process.env.NEXT_PUBLIC_ASSEMBLYAI_AGENT_ID;
-        const session = agentId ? { agent_id: agentId } : { system_prompt: FIXSA_AGENT_PROMPT, greeting: FIXSA_GREETING, tools: voiceToolDefinitions, input: FIXSA_VOICE_INPUT, output: FIXSA_VOICE_OUTPUT };
+        const verificationPrompt = `${FIXSA_AGENT_PROMPT}\nThe resident opened Proof of Fix for ${verificationReference}. Start by checking that reference. Focus only on verifying the claimed repair.`;
+        const verificationGreeting = "Hi, you’re speaking with FixSA Voice. This is a demo. The repair you opened was marked resolved. Is it fixed, partly fixed, or not fixed?";
+        const session = agentId ? { agent_id: agentId } : { system_prompt: verificationIntent ? verificationPrompt : FIXSA_AGENT_PROMPT, greeting: verificationIntent ? verificationGreeting : FIXSA_GREETING, tools: voiceToolDefinitions, input: FIXSA_VOICE_INPUT, output: FIXSA_VOICE_OUTPUT };
         ws.send(JSON.stringify({ type: "session.update", session }));
       });
       ws.addEventListener("message", handleMessage);
@@ -349,12 +360,12 @@ export function VoiceReportClient() {
   const active = ["requesting", "connecting", "listening"].includes(voiceState);
 
   return <>
-    <ol className="progress-steps" aria-label="Report progress"><li className="active">1 <span>Speak</span></li><li>2 <span>Review</span></li><li>3 <span>Confirm</span></li><li>4 <span>Track</span></li></ol>
+    <ol className="progress-steps" aria-label="Report progress"><li className="active">1 <span>Speak</span></li><li>2 <span>{verificationIntent ? "Check" : "Review"}</span></li><li>3 <span>Confirm</span></li><li>4 <span>{verificationIntent ? "Prove" : "Track"}</span></li></ol>
     <div className="voice-layout">
       <section className="panel voice-studio" aria-labelledby="voice-heading">
         <div className="connection-row"><span className={`connection-status ${voiceState}`}>{mode === "demo" ? "Deterministic demo" : voiceState.replace("_", " ")}</span><span>English · South African accents</span></div>
-        <h2 id="voice-heading">Tell us what happened.</h2>
-        <p className="voice-state-label">Speak naturally. Include where it is, how long it has been happening, and any danger.</p>
+        <h2 id="voice-heading">{verificationIntent ? "Did the fix actually work?" : "Tell us what happened."}</h2>
+        <p className="voice-state-label">{verificationIntent ? `Reference ${verificationReference}. Say fixed, partly fixed, or not fixed, and what you can see now.` : "Speak naturally. Include where it is, how long it has been happening, and any danger."}</p>
         <button className={`mic-control ${voiceState === "listening" ? "listening" : ""}`} onClick={active ? stop : start} disabled={!consent || voiceState === "processing"} aria-label={active ? "Stop listening" : "Start listening"}>
           {active ? <StopCircle size={48}/> : <Mic size={48}/>}<span className="sr-only">{active ? "Stop" : "Start"}</span>
         </button>
@@ -365,13 +376,12 @@ export function VoiceReportClient() {
           {transcript || partial ? <p>{transcript} <span className="partial">{partial}</span></p> : <p className="partial">Your words will appear here. Audio is ephemeral by default.</p>}
           {messages.filter((item) => item.speaker === "agent").slice(-1).map((item) => <p key={item.id}><strong>FixSA:</strong> {item.text}</p>)}
         </div>
-        <div className="voice-controls"><button className="button button-ghost button-small" onClick={() => { if (!muted) stopPlayback(); setMuted((value) => !value); }}>{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>} {muted ? "Unmute agent" : "Mute agent"}</button><button className="button button-ghost button-small" onClick={() => { cleanup(); setTranscript(""); setPartial(""); setMessages([]); setVoiceState("idle"); setError(""); }}><RefreshCw size={16}/> Retry</button><button className="button button-ghost button-small" onClick={() => setShowManual(true)}><Keyboard size={16}/> Use keyboard</button></div>
+        <div className="voice-controls"><button className="button button-ghost button-small" onClick={() => { if (!muted) stopPlayback(); setMuted((value) => !value); }}>{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>} {muted ? "Unmute agent" : "Mute agent"}</button><button className="button button-ghost button-small" onClick={() => { cleanup(); setTranscript(""); setPartial(""); setMessages([]); setVoiceState("idle"); setError(""); }}><RefreshCw size={16}/> Retry</button>{!verificationIntent && <button className="button button-ghost button-small" onClick={() => setShowManual(true)}><Keyboard size={16}/> Use keyboard</button>}</div>
       </section>
 
       <aside className="settings-list">
         <section className="panel consent-box"><p className="eyebrow">Before you begin</p><div className="mode-switch" aria-label="Connection mode"><button onClick={() => setMode("demo")} aria-pressed={mode === "demo"}>Demo mode</button><button onClick={() => setMode("real")} aria-pressed={mode === "real"}>Real API</button></div><div className="callout" style={{ marginTop: 16 }}><ShieldCheck size={22}/><div><strong>Privacy at the microphone</strong><p>Live audio is used only to transcribe and respond. FixSA does not store recordings in demo mode.</p></div></div><label className="check-row" style={{ marginTop: 18 }}><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)}/><span><strong>I consent to live transcription</strong><br/><small>I understand this is a synthetic hackathon demo.</small></span></label></section>
-        <section className="panel"><div className="panel-header"><div><p className="eyebrow">Optional location</p><h2>Help place the issue</h2></div><MapPinIcon /></div><div className="field"><label htmlFor="location">Street, area, or landmark</label><input id="location" value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="e.g. Tamboti Road near the clinic"/><small>{locationStatus}</small></div><button className="button button-ghost button-small" style={{ marginTop: 12 }} onClick={useLocation}><LocateFixed size={16}/> Use my approximate location</button></section>
-        <section className="panel"><p className="eyebrow">Optional evidence</p><label className="button button-ghost button-wide"><ImagePlus size={17}/> Add a demo photo<input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && setLocationStatus(`${event.target.files[0].name} selected · kept in this browser only`)}/></label></section>
+        {verificationIntent ? <section className="panel"><p className="eyebrow">Proof of Fix</p><h2>Resident outcome, not audio</h2><p>Your final confirmed statement becomes audit evidence. The recording itself is not retained.</p><Link className="button button-ghost button-wide" href={`/track?ref=${verificationReference}`}>Open public timeline</Link></section> : <><section className="panel"><div className="panel-header"><div><p className="eyebrow">Optional location</p><h2>Help place the issue</h2></div><MapPinIcon /></div><div className="field"><label htmlFor="location">Street, area, or landmark</label><input id="location" value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="e.g. Tamboti Road near the clinic"/><small>{locationStatus}</small></div><button className="button button-ghost button-small" style={{ marginTop: 12 }} onClick={useLocation}><LocateFixed size={16}/> Use my approximate location</button></section><section className="panel"><p className="eyebrow">Optional evidence</p><label className="button button-ghost button-wide"><ImagePlus size={17}/> Add a demo photo<input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && setLocationStatus(`${event.target.files[0].name} selected · kept in this browser only`)}/></label></section></>}
       </aside>
     </div>
 
@@ -379,7 +389,7 @@ export function VoiceReportClient() {
 
     {error && <div className="callout warning" style={{ marginTop: 24 }} role="alert"><AlertTriangle/><div><strong>Voice path unavailable</strong><p>{error}</p><button className="button button-ghost button-small" onClick={() => setShowManual(true)}><Keyboard size={16}/> Continue with keyboard</button></div></div>}
     {danger && <div className="callout danger" style={{ marginTop: 24 }} role="alert"><AlertTriangle/><div><strong>Immediate danger detected — ordinary automation stopped</strong><p>Move away from the hazard and contact the appropriate official local emergency service now. FixSA Voice is not an emergency service and does not display an unverified number. This draft can be flagged for an authorised operator, but it will not be submitted as a normal work order.</p></div></div>}
-    {!danger && (transcript || voiceState === "processing") && <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}><button className="button button-primary" onClick={() => continueToReview()}><Send size={18}/> Review extracted details</button></div>}
+    {!verificationIntent && !danger && (transcript || voiceState === "processing") && <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}><button className="button button-primary" onClick={() => continueToReview()}><Send size={18}/> Review extracted details</button></div>}
   </>;
 }
 

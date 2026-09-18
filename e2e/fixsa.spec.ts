@@ -63,6 +63,17 @@ test("public tracking lookup shows timeline and keeps private fields hidden", as
   await expect(page.getByText(/private to the demo operator view/i)).toBeVisible();
 });
 
+test("Proof of Fix reopens a partial repair and exposes the public audit outcome", async ({ page }) => {
+  await page.goto("/verify?ref=FSA-2026-1811");
+  await expect(page.getByRole("heading", { name: "Trust is the product." })).toBeVisible();
+  await page.getByRole("radio", { name: /Only partly fixed/ }).click();
+  await page.getByRole("button", { name: /Confirm resident response/ }).click();
+  await expect(page.getByRole("heading", { name: /Work order reopened/ })).toBeVisible();
+  await page.getByRole("link", { name: "See public proof" }).click();
+  await expect(page.getByText("Resident challenged the closure")).toBeVisible();
+  await expect(page.getByText(/One streetlight is working/)).toBeVisible();
+});
+
 test("operator can safely triage and audit a report", async ({ page }) => {
   await page.goto("/ops/reports/rpt-pothole-002");
   await expect(page).toHaveURL(/\/operator-access/);

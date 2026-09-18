@@ -11,9 +11,9 @@
 | 0:39 | Duplicate card and rationale | Originality and explainability |
 | 0:49 | Read-back; disabled create | Confirmation guardrail |
 | 0:55 | Explicit confirm and merge | Structured action |
-| 1:03 | Reference and tracking timeline | Resident value |
-| 1:11 | Operator dashboard and map | Operations value |
-| 1:19 | Report detail audit/evidence | Production thinking |
+| 1:03 | Proof of Fix on FSA-2026-1811 | Winning differentiation |
+| 1:09 | Choose partly fixed and confirm | Resident outcome evidence |
+| 1:15 | Reopened public timeline and operator audit | Accountability loop |
 | 1:25 | Dangerous electricity scenario | Safety stop |
 | 1:36 | Architecture/about screen | Technical clarity |
 | 1:44 | Cover/title close | Memorable finish |
