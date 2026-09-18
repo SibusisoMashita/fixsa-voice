@@ -1,0 +1,13 @@
+# Long description
+
+Residents experience service-delivery failures as stories: what happened, where it is, how long it has been happening, and what danger it creates. Operational systems receive fields. That translation gap causes incomplete tickets, repeated reports, slow triage, and poor visibility.
+
+FixSA Voice closes the gap with a real-time conversational intake agent powered by AssemblyAI’s Voice Agent API. A resident taps the microphone and speaks naturally. The live transcript remains visible while the agent extracts category, location, landmark, duration, severity, hazards, people affected, and useful supporting detail. It asks only for required missing information, searches nearby open reports using category, distance, time, and semantic overlap, and explains suspected duplicates.
+
+Before any action, the agent reads the full report back. Creation and merging are technically blocked until the resident explicitly confirms it. Structured JSON-schema tools classify the issue, search duplicates, record confirmation, create or merge the synthetic work order, attach evidence, and read or update status. The result is spoken and displayed with a reference, priority, status, SLA target, and tracking path.
+
+Safety and privacy are application behaviour, not footer text. Recording needs consent. Audio is ephemeral by default. Public tracking excludes contact, identity, transcript, internal-note, assignment, and precise private-home detail. Phone numbers, South African IDs, and email addresses are redacted. If speech indicates fire, exposed electricity, gas, severe injury, crime in progress, or a medical emergency, FixSA Voice stops the ordinary workflow, tells the resident to move to safety and contact the appropriate official local emergency service, and refuses to fabricate a number.
+
+The complete product includes the resident flow, public tracking, an operations dashboard, searchable incident registry, report detail and audit trail, reversible duplicate review, accessible OpenStreetMap triage, synthetic analytics, integration health, retention settings, four judge scenarios, and all privacy, accessibility, legal, help, offline, permission, and failure states. A deterministic demo adapter uses the same tool contracts as the real AssemblyAI path, so the full experience works reliably without a paid key.
+
+FixSA Voice is a VALO Systems hackathon concept, not an official government service. All data and metrics are synthetic, and no request is dispatched to a real municipality. The architecture leaves a clean, authorised integration boundary for future municipal or utility work-order systems.

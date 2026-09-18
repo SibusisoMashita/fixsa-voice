@@ -1,0 +1,13 @@
+import Link from "next/link";
+import { AlertTriangle, Keyboard, MicOff, WifiOff } from "lucide-react";
+import { PageHeader } from "@/components/Ui";
+
+const faqs = [
+  ["Is this an official municipal service?", "No. FixSA Voice is a VALO Systems hackathon demo using synthetic data. A demo reference is not proof of municipal dispatch."],
+  ["What if the issue is dangerous?", "Move away from danger and contact the appropriate official local emergency service. FixSA stops ordinary automation for fire, exposed electricity, gas, severe injury, crime in progress, and medical emergencies."],
+  ["Does the demo keep my audio?", "No. Audio is ephemeral by default. Demo mode uses a deterministic transcript and real mode streams audio to AssemblyAI only when configured and consented."],
+  ["Why did FixSA suggest a duplicate?", "It compares issue category, approximate distance, time window, and overlapping meaning. You see the rationale and choose whether to merge evidence or keep the report separate."],
+  ["Which languages are supported?", "This release exposes English only. The selected real-time model and South African accent quality must be tested before another language is offered."],
+  ["Can I report without a microphone?", "Yes. Use the keyboard alternative on the reporting page; it follows the same extraction, duplicate, review, and confirmation contract."],
+];
+export default function HelpPage() { return <div className="page-container"><PageHeader eyebrow="Help centre" title="A clear path when voice is not." description="Troubleshooting, safety guidance, and plain answers for the public demo."/><div className="three-grid"><Link className="feature-card" href="/status/microphone-denied"><MicOff/><h3>Microphone blocked</h3><p>Permission and device steps.</p></Link><Link className="feature-card" href="/status/offline"><WifiOff/><h3>Network unavailable</h3><p>What still works offline.</p></Link><Link className="feature-card" href="/status/unsupported-browser"><Keyboard/><h3>Unsupported browser</h3><p>Use the text alternative.</p></Link></div><div className="callout danger" style={{ margin:"28px 0" }}><AlertTriangle/><div><strong>FixSA Voice is not an emergency service</strong><p>For immediate danger, move to safety and contact the appropriate official local emergency service. No emergency number is displayed because this demo has no authorised regional configuration.</p></div></div><section className="panel"><p className="eyebrow">Frequently asked questions</p><div className="faq-list">{faqs.map(([question,answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></section></div>; }
